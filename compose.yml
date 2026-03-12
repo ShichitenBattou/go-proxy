@@ -40,6 +40,9 @@ services:
       - KC_DB_PASSWORD=${KC_POSTGRES_PASSWORD:-postgres}
     ports:
       - "8082:8080"
+    depends_on:
+      kc_postgres:
+        condition: service_healthy
     volumes:
       - ${HOST_WORKSPACE}/keycloak/data/import/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
     command: ["start-dev", "--import-realm"]
@@ -53,7 +56,12 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KC_POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   pgdata:
