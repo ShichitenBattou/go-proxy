@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+vars:
+  GREETING: Hello, world!
+
+tasks:
+  default:
+    desc: Print a greeting message
+    cmds:
+      - echo "{{.GREETING}}"
+    silent: true
+
+  generate-keys:
+    desc: Generate a Private/Public SSL/TLS key pair
+    cmds:
+      - openssl req -x509 -newkey rsa:2048 -keyout ./keys/server.key -out ./keys/server.crt -days 365 -nodes -subj "/C=JP/ST=Osaka/L=Osaka/O=Freelance Watanabe/OU=None/CN=localhost" -addext "subjectAltName=DNS:localhost"
+
+  semgrep:
+    desc: Run Semgrep to analyze the codebase
+    cmds:
+      - uvx semgrep --config auto .

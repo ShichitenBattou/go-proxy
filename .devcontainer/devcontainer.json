@@ -1,0 +1,47 @@
+{
+	"name": "Ubuntu",
+	"image": "mcr.microsoft.com/devcontainers/base:noble",
+	"features": {
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+			"moby": true,
+			"installDockerBuildx": true,
+			"installDockerComposeSwitch": true,
+			"version": "latest",
+			"dockerDashComposeVersion": "v2"
+		},
+		"ghcr.io/devcontainers/features/go:1": {
+			"version": "latest"
+		},
+		"ghcr.io/aquaproj/devcontainer-features/aqua-installer:0": {
+			"aqua_version": "v2.56.1"
+		},
+		"ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {},
+		"ghcr.io/stu-bell/devcontainer-features/node:0": {
+			"min_node_version": "25.7.0"
+		}
+	},
+	"containerEnv": {
+		"AQUA_HOME": "/home/vscode/.local/share/aquaproj-aqua"
+	},
+	"remoteEnv": {
+		"PATH": "/home/vscode/.local/share/aquaproj-aqua/bin:${containerEnv:PATH}"
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"streetsidesoftware.code-spell-checker-british-english",
+				"vivaxy.vscode-conventional-commits",
+				"eamodio.gitlens",
+				"ms-azuretools.vscode-docker"
+			]
+		}
+	},
+	"postCreateCommand": [
+		"bash",
+		"./.devcontainer/postCreateCommand.sh"
+	],
+	"initializeCommand": [
+		"bash",
+		"./.devcontainer/initializeCommand.sh"
+	]
+}

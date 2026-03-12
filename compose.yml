@@ -1,0 +1,56 @@
+services:
+  bff:
+    build: ./bff
+    ports:
+      - "8080:8080"
+      - "443:443"
+    depends_on:
+      - api
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-fk", "https://localhost:443"]
+      interval: 1m30s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+  api:
+    build: ./api
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081"]
+      interval: 1m30s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:8.4
+    ports:
+      - "6379:6379"
+  
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.5.4
+    environment:
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
+      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://kc_postgres:5432/${KC_POSTGRES_DB:-postgres}
+      - KC_DB_USERNAME=${KC_POSTGRES_USER:-postgres}
+      - KC_DB_PASSWORD=${KC_POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "8082:8080"
+    volumes:
+      - ${HOST_WORKSPACE}/keycloak/data/import/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    command: ["start-dev", "--import-realm"]
+
+  kc_postgres:
+    image: postgres:18.3
+    environment:
+      - POSTGRES_USER=${KC_POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${KC_POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${KC_POSTGRES_DB:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data

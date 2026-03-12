@@ -1,0 +1,7 @@
+{
+    "github.copilot.chat.commitMessageGeneration.instructions": [
+        {
+            "text": "[Conventional Commits](https://www.conventionalcommits.org/) に絵文字を付けて記述する。"
+        }
+    ]
+}
