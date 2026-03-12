@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__serena__check_onboarding_performed",
+      "mcp__serena__list_memories",
+      "mcp__serena__onboarding",
+      "mcp__serena__list_dir",
+      "mcp__ide__executeCode"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "serena"
+  ],
+  "enabledPlugins": {
+    "document-skills@anthropic-agent-skills": true
+  }
+}
