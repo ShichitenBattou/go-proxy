@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+tasks:
+  build:
+    desc: Build BFF
+    cmds:
+      - go build ./...
+
+  run:
+    desc: Run BFF locally (requires Redis on redis:6379)
+    cmds:
+      - go run main.go
+
+  test:
+    desc: Run all tests (starts Redis via Docker Compose, tears down on exit)
+    cmds:
+      - defer: {task: test:down}
+      - task: test:up
+      - cmd: |
+          REDIS_IP=$(docker compose -f compose.test.yml exec -T redis hostname -i | tr -d ' \n')
+          REDIS_ADDR=${REDIS_IP}:6379 go test ./...
+
+  test:up:
+    internal: true
+    cmds:
+      - docker compose -f compose.test.yml up -d --wait
+
+  test:down:
+    internal: true
+    cmds:
+      - docker compose -f compose.test.yml down

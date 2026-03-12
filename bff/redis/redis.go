@@ -1,28 +1,36 @@
 package redis
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"log/slog"
-
-	"context"
+	"os"
 
 	"github.com/redis/go-redis/v9"
 )
 
 var ctx = context.Background()
+
 func hashToken(token string) string {
 	hash := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(hash[:])
 }
 
+func redisAddr() string {
+	if addr := os.Getenv("REDIS_ADDR"); addr != "" {
+		return addr
+	}
+	return "redis:6379"
+}
+
 func createClient() *redis.Client {
-	return( redis.NewClient(&redis.Options{
-		Addr: "redis:6379",
+	return redis.NewClient(&redis.Options{
+		Addr:     redisAddr(),
 		Password: "",
-		DB: 0,
-	}))
+		DB:       0,
+	})
 }
 
 func SetSession(sessionId string, userId string) error {
