@@ -9,6 +9,9 @@ includes:
   bff:
     dir: ./bff
     taskfile: ./bff/Taskfile.yml
+  api:
+    dir: ./api
+    taskfile: ./api/Taskfile.yml
 
 tasks:
   default:
@@ -26,3 +29,11 @@ tasks:
     desc: Run Semgrep to analyze the codebase
     cmds:
       - uvx semgrep --config auto .
+
+  setup:
+    desc: Setup the project
+    cmds:
+      - cmd: echo "Setting up the project..."
+      - cmd: aqua install
+      - task: api:setup
+      - task: bff:setup
