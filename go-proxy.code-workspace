@@ -1,0 +1,23 @@
+{
+  "folders": [
+    {
+      "path": "."
+    },
+    {
+      "path": "api"
+    },
+    {
+      "path": "bff"
+    },
+    {
+      "path": "front"
+    }
+  ],
+  "settings": {
+    "github.copilot.chat.commitMessageGeneration.instructions": [
+      {
+        "file": ".vscode/commit_message_instruction.md"
+      }
+    ]
+  }
+}
