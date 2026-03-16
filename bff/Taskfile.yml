@@ -31,3 +31,8 @@ tasks:
     internal: true
     cmds:
       - docker compose -f compose.test.yml down
+
+  setup:
+    desc: Setup the project
+    cmds:
+      - cmd: echo "Setting up bff project..."
