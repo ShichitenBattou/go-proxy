@@ -1,2 +1,8 @@
-**/.env
+.env
 bff/_keys
+
+__pycache__
+.venv
+
+tmp/
+.mypy_cache/

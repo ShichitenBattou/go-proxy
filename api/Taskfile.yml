@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+tasks:
+  setup:
+    desc: Setup the project
+    cmds:
+      - cmd: echo "Setting up api project..."
+      - cmd: uv sync
+      - cmd: echo "done"

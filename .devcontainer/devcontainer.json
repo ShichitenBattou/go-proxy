@@ -32,7 +32,9 @@
 				"streetsidesoftware.code-spell-checker-british-english",
 				"vivaxy.vscode-conventional-commits",
 				"eamodio.gitlens",
-				"ms-azuretools.vscode-docker"
+				"ms-azuretools.vscode-docker",
+				"charliermarsh.ruff",
+				"ms-python.mypy-type-checker"
 			]
 		}
 	},
