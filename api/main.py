@@ -1,6 +1,6 @@
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI
 
@@ -8,7 +8,9 @@ from app.config import settings
 from app.infrastructure.jwks_client import JwksClient
 from app.presentation import auth
 from app.presentation.routers import posts, users
+from app.setup.logging import configure_logging
 
+configure_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -27,6 +29,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         cache_keys=True,
         refresh_interval=settings.jwks_refresh_interval,
     )
+
     jwks_client.start()
 
     # 認証設定をグローバルに設定
