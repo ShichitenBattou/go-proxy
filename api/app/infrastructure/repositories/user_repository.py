@@ -12,16 +12,12 @@ class SqlAlchemyUserRepository:
         self._session = session
 
     async def get_by_id(self, user_id: UUID) -> User | None:
-        result = await self._session.execute(
-            select(UserModel).where(UserModel.id == user_id)
-        )
+        result = await self._session.execute(select(UserModel).where(UserModel.id == user_id))
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model else None
 
     async def get_by_keycloak_sub(self, sub: str) -> User | None:
-        result = await self._session.execute(
-            select(UserModel).where(UserModel.keycloak_sub == sub)
-        )
+        result = await self._session.execute(select(UserModel).where(UserModel.keycloak_sub == sub))
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model else None
 
@@ -38,7 +34,7 @@ class SqlAlchemyUserRepository:
     async def save(self, user: User) -> None:
         model = await self._session.get(UserModel, user.id)
         if model:
-            model.role = user.role.value
+            model.role = user.role
             model.is_active = user.is_active
             await self._session.flush()
 
