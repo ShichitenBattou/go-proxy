@@ -4,6 +4,8 @@ from typing import Any
 
 from jwt import PyJWKClient, PyJWKClientError
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,10 +38,11 @@ class JwksClient:
         logger.info(f"JWKS client initialized with URI: {self._jwks_uri}")
 
         # 定期更新タスクを開始
-        self._refresh_task = asyncio.create_task(self._periodic_refresh())
-        logger.info(
-            f"JWKS periodic refresh task started (interval: {self._refresh_interval}s)"
-        )
+        if settings.stage == "dev":
+            pass
+        else:
+            self._refresh_task = asyncio.create_task(self._periodic_refresh())
+            logger.info(f"JWKS periodic refresh task started (interval: {self._refresh_interval}s)")
 
     async def stop(self) -> None:
         """定期更新タスクを停止"""
@@ -82,7 +85,7 @@ class JwksClient:
 
         logger.info("Forcing JWKS refresh...")
         # PyJWKClient の内部キャッシュをクリア
-        self._client._cached_keys = None  # type: ignore
+        self._client._cached_keys = None  # type: ignore[attr-defined]
         # 次回 get_signing_key() で自動的に再取得される
 
     async def _periodic_refresh(self) -> None:

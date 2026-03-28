@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     # JWKS キャッシュ設定
     jwks_refresh_interval: int = 300  # 5分
 
+    stage: str = "dev"  # 開発環境用のデフォルト値
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -24,4 +26,4 @@ class Settings(BaseSettings):
 
 
 # シングルトンインスタンス
-settings = Settings()
+settings = Settings()  # type: ignore[call-arg]
