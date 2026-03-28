@@ -7,10 +7,10 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
+from app.infrastructure.database import Base
 
 # モデルを登録するためインポート
-from app.infrastructure.models import user, post  # noqa: F401
-from app.infrastructure.database import Base
+from app.infrastructure.models import post, user  # noqa: F401
 
 config = context.config
 
