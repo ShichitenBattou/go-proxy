@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+tasks:
+  run:
+    desc: Run the development server
+    cmds:
+      - cmd: echo "Starting development server..."
+      - cmd: uv run uvicorn main:app --reload
+      - cmd: echo "done"
+
+  compose:
+    desc: Run the development server with Docker (requires HOST_WORKSPACE in ../.env)
+    cmds:
+      - docker compose -f compose.dev.yml --env-file ../.env {{.CLI_ARGS}}
+
+  compose:up:
+    desc: Run the development server with Docker (requires HOST_WORKSPACE in ../.env)
+    vars:
+      CLEAN: true
+    cmds:
+      - task: compose
+        vars:
+          CLI_ARGS: "down -v"
+        if: '[ $ENV == "clean" ]'
+      - task: alembic
+        vars:
+          CLI_ARGS: "upgrade head"
+      - task: compose
+        vars:
+          CLI_ARGS: "up --build"
+  
+  migrate:
+    desc: Run database migrations
+    cmds:
+      - cmd: echo "Running database migrations..."
+      - cmd: docker compose -f compose.dev.yml --env-file ../.env run api alembic upgrade head
+      - cmd: echo "done"
+
+  alembic:
+    desc: Run alembic commands (e.g., "task alembic -- CLI_ARGS='upgrade head'")
+    cmds:
+      - cmd: echo "Running alembic command {{.CLI_ARGS}}"
+      - cmd: docker compose -f compose.dev.yml --env-file ../.env run api alembic {{.CLI_ARGS}}
+      - cmd: echo "done"
+
+  revision:
+    desc: Generate a new migration revision
+    cmds:
+      - cmd: echo "Generating a new migration revision..."
+      - cmd: docker compose -f compose.dev.yml --env-file ../.env run api alembic revision --autogenerate -m "{{.MSG}}"
+      - cmd: echo "done"
+
+  generate-keys:
+    desc: Generate a Private/Public key pair for JWT singing
+    cmds:
+      - cmd: openssl genrsa -out private-key.pem 3072
+      - cmd: openssl rsa -in private-key.pem -pubout -out public-key.pem
+
+  create-jwks:
+    desc: Create a JWKS file from the generated public key
+    cmds:
+      - cmd: echo "Creating JWKS file..."
+      - cmd: |
+          PUBLIC_KEY=$(cat public-key.pem)
+          KEY_ID="my-key-id"
+          echo "{\"keys\":[{\"kty\":\"RSA\",\"kid\":\"$KEY_ID\",\"use\":\"sig\",\"alg\":\"RS256\",\"n\":\"$(echo $PUBLIC_KEY | base64 | tr -d '\n')\",\"e\":\"AQAB\"}]}" > jwks.json
+  
