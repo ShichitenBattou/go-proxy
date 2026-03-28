@@ -9,9 +9,13 @@
   },
   "python.linting.enabled": false,
   "python.analysis.typeCheckingMode": "off",
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.defaultInterpreterPath": "/.venv/bin/python",
   "mypy-type-checker.preferDaemon": true,
-  "mypy-type-checker.path": ["${workspaceFolder}/.venv/bin/mypy"],
-  "mypy-type-checker.args": ["--config-file=${workspaceFolder}/pyproject.toml"],
-  "mypy-type-checker.cwd": "${workspaceFolder}"
+  "mypy-type-checker.path": [
+    "/.venv/bin/mypy"
+  ],
+  "mypy-type-checker.args": [
+    "--config-file=/pyproject.toml"
+  ],
+  "mypy-type-checker.cwd": "."
 }
