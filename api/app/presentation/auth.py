@@ -1,10 +1,14 @@
+import json
 import logging
+import sys
 from typing import Annotated
 
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import jwt as jose_jwt
 
+from app.config import settings
 from app.infrastructure.jwks_client import JwksClient
 
 logger = logging.getLogger(__name__)
@@ -58,6 +62,7 @@ async def get_current_sub(
 
     if not _jwks_client or not _issuer or not _audience:
         logger.error("Auth config not initialized")
+        logger.debug(f"_jwks_client: {_jwks_client}, _issuer: {_issuer}, _audience: {_audience}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Authentication not configured",
@@ -76,13 +81,32 @@ async def get_current_sub(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # JWKS から署名鍵を取得
-        signing_key = _jwks_client.get_signing_key(kid)
+        if settings.stage == "dev":
+            with open("jwks.json") as file:
+                jwks_data = json.load(file)
+
+            signing_key = jwt.PyJWK(next(x for x in jwks_data["keys"] if x["kid"] == kid)).key
+        else:
+            # JWKS から署名鍵を取得
+            signing_key = _jwks_client.get_signing_key(kid).key
+
+        json.dump(
+            jwt.get_unverified_header(token), sys.stdout, indent=2
+        )  # ヘッダーの検証（kid の存在確認など）
+        json.dump(
+            jose_jwt.get_unverified_claims(token),  # クレームの検証（iss, aud の存在確認など）
+            sys.stdout,
+            indent=2,
+        )
+
+        print(
+            f"issuer: {_issuer}, token issuer: {jose_jwt.get_unverified_claims(token).get('iss')}"
+        )
 
         # JWT をデコード・検証
         payload = jwt.decode(
             token,
-            signing_key.key,
+            signing_key,
             algorithms=["RS256"],
             issuer=_issuer,
             audience=_audience,
@@ -104,7 +128,7 @@ async def get_current_sub(
             )
 
         logger.debug(f"JWT verified successfully for sub: {sub}")
-        return sub
+        return str(sub)
 
     except jwt.ExpiredSignatureError:
         logger.warning("JWT expired")
