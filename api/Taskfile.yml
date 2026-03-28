@@ -2,10 +2,35 @@
 
 version: '3'
 
+includes:
+  dev:
+    taskfile: Taskfile.dev.yml
+
 tasks:
   setup:
     desc: Setup the project
     cmds:
       - cmd: echo "Setting up api project..."
       - cmd: uv sync
+      - cmd: echo "done"
+
+  test:
+    desc: Run tests
+    cmds:
+      - cmd: echo "Running tests..."
+      - cmd: uv run pytest
+      - cmd: echo "done"
+
+  ruff:
+    desc: Run ruff linter
+    cmds:
+      - cmd: echo "Running ruff linter..."
+      - cmd: uv run ruff check . {{.CLI_ARGS}}
+      - cmd: echo "done"
+
+  mypy:
+    desc: Run mypy type checker
+    cmds:
+      - cmd: echo "Running mypy type checker..."
+      - cmd: uv run mypy . {{.CLI_ARGS}}
       - cmd: echo "done"
