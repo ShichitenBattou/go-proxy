@@ -6,3 +6,6 @@ __pycache__
 
 tmp/
 .mypy_cache/
+*.pem
+jwks.json
+*.log
