@@ -11,12 +11,12 @@ tasks:
       - cmd: echo "done"
 
   compose:
-    desc: Run the development server with Docker (requires HOST_WORKSPACE in ../.env)
+    desc: Run the development server with Docker
     cmds:
-      - docker compose -f compose.dev.yml --env-file ../.env {{.CLI_ARGS}}
+      - docker compose -f compose.dev.yml --env-file ./.env {{.CLI_ARGS}}
 
   compose:up:
-    desc: Run the development server with Docker (requires HOST_WORKSPACE in ../.env)
+    desc: Run the development server with Docker
     vars:
       CLEAN: true
     cmds:
@@ -35,21 +35,21 @@ tasks:
     desc: Run database migrations
     cmds:
       - cmd: echo "Running database migrations..."
-      - cmd: docker compose -f compose.dev.yml --env-file ../.env run api alembic upgrade head
+      - cmd: docker compose -f compose.dev.yml --env-file ./.env run api alembic upgrade head
       - cmd: echo "done"
 
   alembic:
     desc: Run alembic commands (e.g., "task alembic -- CLI_ARGS='upgrade head'")
     cmds:
       - cmd: echo "Running alembic command {{.CLI_ARGS}}"
-      - cmd: docker compose -f compose.dev.yml --env-file ../.env run api alembic {{.CLI_ARGS}}
+      - cmd: docker compose -f compose.dev.yml --env-file ./.env run api alembic {{.CLI_ARGS}}
       - cmd: echo "done"
 
   revision:
     desc: Generate a new migration revision
     cmds:
       - cmd: echo "Generating a new migration revision..."
-      - cmd: docker compose -f compose.dev.yml --env-file ../.env run api alembic revision --autogenerate -m "{{.MSG}}"
+      - cmd: docker compose -f compose.dev.yml --env-file ./.env run api alembic revision --autogenerate -m "{{.MSG}}"
       - cmd: echo "done"
 
   generate-keys:
