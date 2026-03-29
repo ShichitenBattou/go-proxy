@@ -6,23 +6,23 @@
 
 Keycloak を使った認証付き BFF (Backend for Frontend) プロキシパターンのマルチサービス構成です。
 
-- **bff/** — Go 製リバースプロキシ (TLS, ポート 443)。リクエストを受け取り、Redis でセッション管理し、`/api` プレフィックスを除去して API サービスへ転送する。`/auth/login` で Keycloak OIDC ログインへのリダイレクトも担う。
-- **api/** — シンプルな Go HTTP バックエンド (ポート 8081)。BFF の転送先。
+- **bff/** — Go 製リバースプロキシ (TLS)。リクエストを受け取り、Redis でセッション管理し、`/api` プレフィックスを除去して API サービスへ転送する。`/auth/login` で Keycloak OIDC ログインへのリダイレクトも担う。
+- **api/** — Python/FastAPI バックエンド。BFF の転送先。クリーンアーキテクチャ + CQRS を採用。詳細は `api/CLAUDE.md` 参照。
 - **front/** — Next.js 16 / React 19 / Tailwind CSS 4 フロントエンド (開発時ポート 3000)。
 - **redis** — セッションストア。セッションは SHA-256 ハッシュ済みキー (`session:<hash>`) で保存される。
-- **keycloak** — OIDC アイデンティティプロバイダー (ポート 8082)、PostgreSQL バックエンド。レルム設定は `keycloak/data/import/realm-export.json` からインポート (レルム: `myrealm`、クライアント: `bff`)。
+- **keycloak** — OIDC アイデンティティプロバイダー、PostgreSQL バックエンド。レルム設定は `keycloak/data/import/realm-export.json` からインポート (レルム: `myrealm`、クライアント: `bff`)。
 
 ### リクエストフロー
 
 ```
-ブラウザ → BFF (:443, HTTPS) → API (:8081, HTTP)
-                  ↕
-            Redis (セッションストア)
+ブラウザ → BFF (HTTPS) → API (HTTP)
+               ↕
+         Redis (セッションストア)
 ```
 
 BFF の動作:
 1. リクエストごとに `Session-Id` Cookie を Redis で検証
-2. `/api` プレフィックスを除去して `api:8081` へ転送
+2. `/api` プレフィックスを除去して API へ転送
 3. レスポンスのたびにセッション Cookie をローテーション
 4. 未認証ユーザーを Keycloak へリダイレクト
 
@@ -55,12 +55,13 @@ task test               # 全パッケージテスト (Redis を Docker Compose 
 go test ./auth/...      # Redis 不要なパッケージのみ単独実行可
 ```
 
-### API (Go)
+### API (Python/FastAPI)
 
 ```bash
 cd api
-go run main.go
-go test ./...
+uv sync             # 依存関係のインストール
+task run            # ローカル起動
+uv run pytest       # テスト実行
 ```
 
 ### フロントエンド (Next.js)
