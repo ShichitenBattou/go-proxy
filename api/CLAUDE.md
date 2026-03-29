@@ -5,9 +5,7 @@
 ## 概要
 
 API バックエンドサービス — BFF レイヤーからプロキシされたリクエストを受け取る Python/FastAPI HTTP サーバー。
-クリーンアーキテクチャ ([参考](https://github.com/ivan-borovets/fastapi-clean-example)) を採用。
-
-> 注意: ルートの `CLAUDE.md` にはポート 8081 および Go 実装の記述があるが、本サービスは Python/FastAPI へ移行済み。Docker 内ではポート 8000 で動作する。
+クリーンアーキテクチャ ([参考](https://github.com/ivan-borovets/fastapi-clean-example)) を採用。Docker 内ではポート 8000 で動作する。
 
 ## コマンド
 
@@ -16,7 +14,7 @@ API バックエンドサービス — BFF レイヤーからプロキシされ�
 uv sync
 
 # ローカル起動
-uv run uvicorn main:app --reload --port 8000
+task run
 
 # テスト実行
 uv run pytest
@@ -27,18 +25,18 @@ uv add <package>
 
 ### Alembic マイグレーション
 
+DB への接続が必要なため、`task` コマンド経由で Docker Compose を使って実行する。
+
 ```bash
 # マイグレーションファイルの自動生成
-uv run alembic revision --autogenerate -m "説明"
+task revision -- MSG="説明"
 
 # マイグレーション適用
-uv run alembic upgrade head
+task migrate
 
-# 1つ前に戻す
-uv run alembic downgrade -1
+# 任意の alembic コマンド実行 (例: downgrade)
+task alembic -- CLI_ARGS="downgrade -1"
 ```
-
-`DATABASE_URL` 環境変数で接続先を上書き可能 (デフォルト: `postgresql+asyncpg://postgres:postgres@localhost:5432/api`)。
 
 ## アーキテクチャ
 
