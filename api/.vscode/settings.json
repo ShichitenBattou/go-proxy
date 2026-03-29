@@ -5,17 +5,11 @@
     "editor.codeActionsOnSave": {
       "source.fixAll.ruff": "explicit",
       "source.organizeImports.ruff": "explicit"
-    }
+    },
   },
   "python.linting.enabled": false,
   "python.analysis.typeCheckingMode": "off",
-  "python.defaultInterpreterPath": "/.venv/bin/python",
-  "mypy-type-checker.preferDaemon": true,
-  "mypy-type-checker.path": [
-    "/.venv/bin/mypy"
-  ],
-  "mypy-type-checker.args": [
-    "--config-file=/pyproject.toml"
-  ],
-  "mypy-type-checker.cwd": "."
+  "python.analysis.indexing": true,
+  "python.analysis.autoImportCompletions": true,
+  "python.defaultInterpreterPath": "${workspaceFolder:api}/.venv/bin/python",
 }
