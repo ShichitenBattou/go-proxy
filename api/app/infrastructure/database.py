@@ -1,6 +1,6 @@
-import os
 from collections.abc import AsyncGenerator
 
+from sqlalchemy import URL
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -8,9 +8,15 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import DeclarativeBase
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres@localhost:5432/api",
+from app.config import settings
+
+DATABASE_URL: URL = URL.create(
+    drivername="postgresql+asyncpg",
+    username=settings.postgres_user,
+    password=settings.postgres_password,
+    host=settings.db_host,
+    port=settings.db_port,
+    database=settings.postgres_db,
 )
 
 engine = create_async_engine(DATABASE_URL)

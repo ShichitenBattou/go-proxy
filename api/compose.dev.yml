@@ -8,10 +8,6 @@ services:
     volumes:
       - ${HOST_WORKSPACE}/api:/app
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/postgres
-      - KEYCLOAK_ISSUER=http://keycloak:8082/realms/myrealm
-      - KEYCLOAK_AUDIENCE=bff
-      - KEYCLOAK_JWKS_URI=http://keycloak:8082/realms/myrealm/protocol/openid-connect/certs
       - STAGE=dev
     depends_on:
       postgres:
@@ -19,16 +15,17 @@ services:
 
   postgres:
     image: postgres:17.4
+    container_name: ${DB_HOST}
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      - "${DB_PORT}:5432"
     volumes:
       - api_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5

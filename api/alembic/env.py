@@ -1,5 +1,4 @@
 import asyncio
-import os
 from logging.config import fileConfig
 
 from sqlalchemy import pool
@@ -7,7 +6,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-from app.infrastructure.database import Base
+from app.infrastructure.database import DATABASE_URL, Base
 
 # モデルを登録するためインポート
 from app.infrastructure.models import post, user  # noqa: F401
@@ -17,10 +16,7 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# 環境変数で DATABASE_URL を上書き可能
-database_url = os.getenv("DATABASE_URL")
-if database_url:
-    config.set_main_option("sqlalchemy.url", database_url)
+config.set_main_option("sqlalchemy.url", DATABASE_URL.render_as_string(hide_password=False))
 
 target_metadata = Base.metadata
 

@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     keycloak_issuer: str
     keycloak_audience: str
     keycloak_jwks_uri: str
+    postgres_user: str
+    postgres_password: str
+    postgres_db: str
+    db_host: str = "localhost"
+    db_port: int = 5432
 
     # JWKS キャッシュ設定
     jwks_refresh_interval: int = 300  # 5分
