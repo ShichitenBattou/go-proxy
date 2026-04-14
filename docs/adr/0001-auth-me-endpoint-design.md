@@ -1,7 +1,7 @@
 # ADR-0001: GET /auth/me エンドポイントの設計
 
 ## Status
-提案中（Proposed）
+承認済み（Accepted） - 2026-04-15
 
 ## Context
 
@@ -29,125 +29,89 @@ func SetSession(sessionId string, userId string) error
 
 ## Decision
 
-以下の設計判断について相談したいです：
+**選択: JSON構造体に拡張 + トークン保存あり + 最小限レスポンス**
 
 ### 1. セッションデータ構造
 
-**選択肢A: JSON構造体に拡張（推奨）**
 ```go
 type SessionData struct {
-    UserID   string `json:"user_id"`    // OIDC sub claim
-    Email    string `json:"email"`
-    Name     string `json:"name"`
-    // AccessToken  string `json:"access_token,omitempty"`  // 任意
-    // RefreshToken string `json:"refresh_token,omitempty"` // 任意
+    UserID       string `json:"user_id"`    // OIDC sub claim
+    Email        string `json:"email"`
+    Name         string `json:"name"`
+
+    // WARNING: Storing tokens in Redis without TLS/ACL has security risks.
+    // - Risk: If Redis is compromised, attackers can impersonate users
+    // - Mitigation: Ensure Redis is on isolated network, not publicly accessible
+    // - Production TODO: Enable Redis TLS and ACL configuration
+    AccessToken  string `json:"access_token,omitempty"`
+    RefreshToken string `json:"refresh_token,omitempty"`
 }
 ```
 
-**メリット:**
-- Redis読み取り1回で完結（パフォーマンス）
-- Keycloakへの依存を減らせる
-- オフライン動作可能
-
-**デメリット:**
-- セッションサイズ増加
-- ユーザー情報の更新がリアルタイムでない
-
----
-
-**選択肢B: userId のみ保存 + UserInfo API呼び出し**
-```go
-// セッション構造は現状維持
-// /auth/me のたびに Keycloak UserInfo エンドポイントを呼ぶ
-```
-
-**メリット:**
-- セッションサイズ最小
-- ユーザー情報が常に最新
-
-**デメリット:**
-- 毎回Keycloakへ通信（レイテンシ増加）
-- Keycloakダウン時にユーザー情報取得不可
-- Access Token の管理が必要
+**理由:**
+1. **BFFの本質**: 静的サイトでRefresh Token拡張を使えることがBFFの価値
+2. **シームレスな認証**: Access Token期限切れ時、BFFがRefresh Tokenで自動更新
+3. **セキュアなSPA**: フロントエンド（JavaScript）でトークンを扱わない
 
 ### 2. トークンの保存
 
-**Access Token / Refresh Token をセッションに保存するか？**
+**Access Token / Refresh Token を両方保存する**
 
-**保存する場合:**
-- `/auth/me` でUserInfo APIを呼べる
-- API呼び出し時にバックエンドへトークンを転送可能（現在は未実装）
-- トークンリフレッシュが可能
+**想定フロー:**
+1. ユーザーがログイン
+2. `/auth/callback` で Access Token + Refresh Token を取得
+3. 両トークンをRedisのSessionDataに保存
+4. セッションCookieのみをブラウザに返す（トークンは送らない）
+5. `/api/*` リクエスト時、BFFがセッションからAccess Tokenを取得してバックエンドへ転送
+6. Access Token期限切れ時、BFFがRefresh Tokenで自動更新
 
-**保存しない場合:**
-- セキュリティリスク低減（Redisから漏洩してもトークンなし）
-- セッションサイズ削減
-- ただし、UserInfo API呼び出し不可 → 選択肢Aが必須
+**セキュリティ考慮:**
+- ⚠️ 現状: Redis ACL未使用、TLS未使用
+- ✅ 緩和策: Docker内部ネットワークのみで通信（外部公開なし）
+- 📝 コード内警告: トークン保存のリスクをコメントで明記
+- 🔮 将来対応: 本番環境でRedis TLS/ACL有効化を推奨
 
 ### 3. レスポンス形式
 
-**最小限（推奨）:**
-```json
-{
-  "email": "user@example.com",
-  "name": "John Doe",
-  "sub": "keycloak-user-id"
-}
-```
-
-**詳細:**
+**最小限:**
 ```json
 {
   "sub": "keycloak-user-id",
   "email": "user@example.com",
-  "email_verified": true,
-  "name": "John Doe",
-  "preferred_username": "john",
-  "given_name": "John",
-  "family_name": "Doe"
+  "name": "John Doe"
 }
 ```
 
-## 推奨案
-
-**私の推奨: 選択肢A（JSON構造体）+ トークン保存なし + 最小限レスポンス**
-
-**理由:**
-1. **パフォーマンス**: Redis 1回読み取りで完結
-2. **シンプル**: Keycloakへの依存最小
-3. **セキュリティ**: トークンをRedisに保存しないことでリスク低減
-4. **十分性**: BFFパターンでは、バックエンドAPIがユーザー識別に必要なのは `sub`（userID）のみ
-
 **実装方針:**
-- `/auth/callback` でIDトークンからクレームを抽出し、SessionDataとして保存
-- `/auth/me` は Redis から SessionData を読み取り、そのまま返す
-- トークンは保存せず、認証状態の維持のみセッションで管理
+- `/auth/callback` でIDトークンからクレームを抽出し、SessionData（トークン含む）として保存
+- `/auth/me` は Redis から SessionData を読み取り、ユーザー情報のみ（トークンなし）をレスポンス
 
 ## Consequences
 
-**選択肢Aを採用した場合:**
-
 **ポジティブ:**
-- 高速なレスポンス（Redisのみ）
-- Keycloakダウンタイムの影響を受けない
-- 実装がシンプル
+- ✅ 静的サイトでもRefresh Token拡張が使える（BFFの本質）
+- ✅ フロントエンドがトークンを扱わない（セキュア）
+- ✅ Access Token期限切れ時の自動更新が可能
+- ✅ 高速なレスポンス（Redis 1回読み取り）
+- ✅ Keycloakダウンタイム時もセッション継続
 
 **ネガティブ:**
-- ユーザー情報の更新が即座に反映されない（例: メールアドレス変更）
-  - 対策: 次回ログイン時に更新、または定期的にセッションを無効化
-- 将来的にAccess Tokenが必要になった場合、構造変更が必要
-  - 対策: その時点で段階的にトークン保存機能を追加
+- ⚠️ Redis侵害時のトークン漏洩リスク
+  - **緩和策**: Docker内部ネットワークのみ、外部公開なし
+  - **将来対応**: Redis TLS/ACL有効化
+- ⚠️ ユーザー情報の更新が即座に反映されない
+  - **対策**: 次回ログイン時に更新、セッションTTL調整
+- ⚠️ セッションサイズ増加（トークン含む）
+  - **影響**: 現状のTTL（30日）では許容範囲
 
-**ネガティブへの対応策:**
-- ユーザー情報の鮮度が重要な場合は、セッションTTLを短くする（例: 1日）
-- または、選択肢Bに切り替え（後方互換性は保てない）
+**セキュリティTODO（別タスクで対応）:**
+1. Cookie属性: `HttpOnly=true`, `Secure=true`, `SameSite=Strict`
+2. Redis TLS有効化（本番環境推奨）
+3. Redis ACL設定（本番環境推奨）
 
----
+## Implementation Notes
 
-## 質問
-
-この設計で進めてよろしいでしょうか？または、以下の点について異なる方針がありますか？
-
-1. **トークンの保存**: 将来的にバックエンドAPIへAccess Tokenを転送する予定はありますか？
-2. **ユーザー情報の鮮度**: リアルタイムなユーザー情報取得が必要なユースケースはありますか？
-3. **レスポンス項目**: email/name/sub 以外に必要なクレームはありますか？（例: roles, groups）
+- `/auth/me` エンドポイント実装
+- `redis.SessionData` 構造体定義（セキュリティ警告コメント含む）
+- `redis.SetSession` / `redis.GetSession` の型変更（string → SessionData）
+- `/auth/callback` でトークンを SessionData に保存（別ADRで詳細設計）
