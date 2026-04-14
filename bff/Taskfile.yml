@@ -3,10 +3,20 @@
 version: '3'
 
 tasks:
+  lint:
+    desc: Run all linters (go vet)
+    cmds:
+      - task: vet
+
   build:
     desc: Build BFF
     cmds:
       - go build ./...
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
 
   run:
     desc: Run BFF locally (requires Redis on redis:6379)
@@ -19,8 +29,7 @@ tasks:
       - defer: {task: test:down}
       - task: test:up
       - cmd: |
-          REDIS_IP=$(docker compose -f compose.test.yml exec -T redis hostname -i | tr -d ' \n')
-          REDIS_ADDR=${REDIS_IP}:6379 go test ./...
+          REDIS_ADDR=localhost:6379 go test ./...
 
   test:up:
     internal: true
