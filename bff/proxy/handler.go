@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"bff/redis"
+	"bff/setup"
 )
 
 var errNoSessionCookie = fmt.Errorf("No session cookie found, creating new session")
@@ -24,10 +25,11 @@ func hashToken(token string) string {
 }
 
 func NewHandler(forwardHost string) http.Handler {
+	cfg := setup.GetConfig()
 	var existedSessionId *string
 
 	rewrite := func(request *httputil.ProxyRequest) {
-		sessionID, err := request.In.Cookie("Session-Id")
+		sessionID, err := request.In.Cookie(cfg.SessionCookieName)
 		if err != nil {
 			slog.Error("Error getting cookie", "error", err)
 		} else {
@@ -61,8 +63,8 @@ func NewHandler(forwardHost string) http.Handler {
 
 	modifyResponse := func(response *http.Response) error {
 		slog.Info("Received response", "statusCode", response.StatusCode, "url", response.Request.URL.String())
-		response.Header.Set("Access-Control-Allow-Origin", "https://localhost:3000")
-		response.Header.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		response.Header.Set("Access-Control-Allow-Origin", cfg.CORSAllowOrigin)
+		response.Header.Set("Access-Control-Allow-Methods", cfg.CORSAllowMethods)
 
 		if existedSessionId == nil {
 			slog.Info("No session cookie found, creating new session")
@@ -71,7 +73,11 @@ func NewHandler(forwardHost string) http.Handler {
 		}
 
 		session_id := uuid.New()
-		response.Header.Set("Set-Cookie", fmt.Sprintf("Session-Id= %s; Secure", session_id.String()))
+		cookieValue := fmt.Sprintf("%s=%s", cfg.SessionCookieName, session_id.String())
+		if cfg.SessionCookieSecure {
+			cookieValue += "; Secure"
+		}
+		response.Header.Set("Set-Cookie", cookieValue)
 
 		// Store the session in Redis with the client's IP address
 		err := redis.SetSession(session_id.String(), response.Request.RemoteAddr)
