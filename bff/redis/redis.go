@@ -94,11 +94,12 @@ func DeleteSession(sessionId string) error {
 // WARNING: Storing tokens in Redis without TLS/ACL has security risks.
 // - Risk: If Redis is compromised, attackers can impersonate users
 // - Mitigation: Ensure Redis is on isolated network, not publicly accessible
-// - Production TODO: Enable Redis TLS and ACL configuration (see docs/adr/0001)
+// - Production TODO: Enable Redis TLS and ACL configuration (see docs/adr/0001, 0002)
 type SessionData struct {
-	UserID       string `json:"user_id"`              // OIDC sub claim
-	Email        string `json:"email"`                // User email
-	Name         string `json:"name"`                 // User display name
+	UserID       string `json:"user_id"`                 // OIDC sub claim
+	Email        string `json:"email"`                   // User email
+	Name         string `json:"name"`                    // User display name
+	IDToken      string `json:"id_token,omitempty"`      // OIDC ID token (for logout)
 	AccessToken  string `json:"access_token,omitempty"`  // OAuth2 access token
 	RefreshToken string `json:"refresh_token,omitempty"` // OAuth2 refresh token
 }

@@ -31,6 +31,7 @@ func main() {
 		http.HandleFunc("/auth/login", auth.LoginHandler)
 		http.HandleFunc("/auth/callback", auth.CallbackHandler)
 		http.HandleFunc("/auth/me", auth.MeHandler)
+		http.HandleFunc("/auth/logout", auth.LogoutHandler)
 
 		http.ListenAndServe(cfg.BFFListenAddr, nil)
 		wg.Done()
