@@ -31,34 +31,48 @@ func createClient() *redis.Client {
 	})
 }
 
-func SetSession(sessionId string, userId string) error {
+func SetSession(sessionId string, sessionData SessionData) error {
 	cfg := setup.GetConfig()
 	rdb := createClient()
 	defer rdb.Close()
 
-	hashedSessionId := hashToken(sessionId)
-	key := cfg.SessionKeyPrefix + hashedSessionId
-	err := rdb.Set(ctx, key, userId, cfg.SessionTTL).Err()
+	// Marshal SessionData to JSON
+	content, err := json.Marshal(sessionData)
 	if err != nil {
 		return err
 	}
-	slog.Info("Session stored in Redis", "key", key, "value", userId, "ttl", cfg.SessionTTL)
+
+	hashedSessionId := hashToken(sessionId)
+	key := cfg.SessionKeyPrefix + hashedSessionId
+	err = rdb.Set(ctx, key, content, cfg.SessionTTL).Err()
+	if err != nil {
+		return err
+	}
+	slog.Info("Session stored in Redis", "key", key, "userId", sessionData.UserID, "ttl", cfg.SessionTTL)
 	return nil
 }
 
-func GetSessionValue(sessionId string) (string, error) {
+func GetSessionValue(sessionId string) (SessionData, error) {
 	cfg := setup.GetConfig()
 	rdb := createClient()
 	defer rdb.Close()
 
 	hashedSessionId := hashToken(sessionId)
 	key := cfg.SessionKeyPrefix + hashedSessionId
-	sessionValue, err := rdb.Get(ctx, key).Result()
+	content, err := rdb.Get(ctx, key).Result()
 	if errors.Is(err, redis.Nil) {
-		return "", errors.New("Session not found in Redis")
+		return SessionData{}, errors.New("Session not found in Redis")
 	}
-	slog.Info("Session retrieved from Redis", "key", key, "value", sessionValue)
-	return sessionValue, nil
+	if err != nil {
+		return SessionData{}, err
+	}
+
+	var sessionData SessionData
+	if err := json.Unmarshal([]byte(content), &sessionData); err != nil {
+		return SessionData{}, err
+	}
+	slog.Info("Session retrieved from Redis", "key", key, "userId", sessionData.UserID)
+	return sessionData, nil
 }
 
 func DeleteSession(sessionId string) error {
@@ -76,8 +90,21 @@ func DeleteSession(sessionId string) error {
 	return nil
 }
 
+// SessionData represents the session data stored in Redis.
+// WARNING: Storing tokens in Redis without TLS/ACL has security risks.
+// - Risk: If Redis is compromised, attackers can impersonate users
+// - Mitigation: Ensure Redis is on isolated network, not publicly accessible
+// - Production TODO: Enable Redis TLS and ACL configuration (see docs/adr/0001)
+type SessionData struct {
+	UserID       string `json:"user_id"`              // OIDC sub claim
+	Email        string `json:"email"`                // User email
+	Name         string `json:"name"`                 // User display name
+	AccessToken  string `json:"access_token,omitempty"`  // OAuth2 access token
+	RefreshToken string `json:"refresh_token,omitempty"` // OAuth2 refresh token
+}
+
 type StateData struct {
-	RedirectURL url.URL    `json:"redirect_url"`
+	RedirectURL url.URL   `json:"redirect_url"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 

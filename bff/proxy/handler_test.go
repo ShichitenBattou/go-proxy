@@ -36,16 +36,28 @@ func TestProxyHandler_SetsSessionCookie(t *testing.T) {
 	}))
 	defer backend.Close()
 
+	// Create an existing session first
+	sessionId := "test-session-cookie-" + t.Name()
+	sessionData := redis.SessionData{
+		UserID: "test-user",
+		Email:  "cookie@example.com",
+		Name:   "Cookie Test",
+	}
+	if err := redis.SetSession(sessionId, sessionData); err != nil {
+		t.Fatalf("failed to set up test session: %v", err)
+	}
+	defer redis.DeleteSession(sessionId)
+
 	handler := proxy.NewHandler(backend.Listener.Addr().String())
 
 	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
-	req.AddCookie(&http.Cookie{Name: "Session-Id", Value: "dummy-session"})
+	req.AddCookie(&http.Cookie{Name: "Session-Id", Value: sessionId})
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
 
 	if rr.Header().Get("Set-Cookie") == "" {
-		t.Error("expected Set-Cookie header, got none")
+		t.Error("expected Set-Cookie header for session rotation, got none")
 	}
 }
 
@@ -77,7 +89,12 @@ func TestProxyHandler_ExistingSessionStored(t *testing.T) {
 	defer backend.Close()
 
 	sessionId := "test-proxy-session-" + t.Name()
-	if err := redis.SetSession(sessionId, "127.0.0.1"); err != nil {
+	sessionData := redis.SessionData{
+		UserID: "test-user",
+		Email:  "test@example.com",
+		Name:   "Test User",
+	}
+	if err := redis.SetSession(sessionId, sessionData); err != nil {
 		t.Fatalf("failed to set up test session: %v", err)
 	}
 

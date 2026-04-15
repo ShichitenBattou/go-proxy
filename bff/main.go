@@ -30,6 +30,7 @@ func main() {
 		http.Handle("/", proxy.NewHandler(cfg.ProxyTarget))
 		http.HandleFunc("/auth/login", auth.LoginHandler)
 		http.HandleFunc("/auth/callback", auth.CallbackHandler)
+		http.HandleFunc("/auth/me", auth.MeHandler)
 
 		http.ListenAndServe(cfg.BFFListenAddr, nil)
 		wg.Done()

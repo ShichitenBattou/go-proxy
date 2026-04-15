@@ -8,8 +8,13 @@ import (
 
 func TestSetAndGetSession(t *testing.T) {
 	sessionId := "test-session-" + t.Name()
+	sessionData := redis.SessionData{
+		UserID: "test-user-123",
+		Email:  "test@example.com",
+		Name:   "Test User",
+	}
 
-	if err := redis.SetSession(sessionId, "127.0.0.1"); err != nil {
+	if err := redis.SetSession(sessionId, sessionData); err != nil {
 		t.Fatalf("SetSession failed: %v", err)
 	}
 
@@ -18,15 +23,26 @@ func TestSetAndGetSession(t *testing.T) {
 		t.Fatalf("GetSessionValue failed: %v", err)
 	}
 
-	if val != "127.0.0.1" {
-		t.Errorf("expected '127.0.0.1', got '%s'", val)
+	if val.UserID != sessionData.UserID {
+		t.Errorf("expected UserID '%s', got '%s'", sessionData.UserID, val.UserID)
+	}
+	if val.Email != sessionData.Email {
+		t.Errorf("expected Email '%s', got '%s'", sessionData.Email, val.Email)
+	}
+	if val.Name != sessionData.Name {
+		t.Errorf("expected Name '%s', got '%s'", sessionData.Name, val.Name)
 	}
 }
 
 func TestDeleteSession(t *testing.T) {
 	sessionId := "test-session-" + t.Name()
+	sessionData := redis.SessionData{
+		UserID: "test-user-456",
+		Email:  "delete@example.com",
+		Name:   "Delete Test",
+	}
 
-	if err := redis.SetSession(sessionId, "10.0.0.1"); err != nil {
+	if err := redis.SetSession(sessionId, sessionData); err != nil {
 		t.Fatalf("SetSession failed: %v", err)
 	}
 

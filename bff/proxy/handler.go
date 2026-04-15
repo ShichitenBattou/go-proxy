@@ -66,25 +66,34 @@ func NewHandler(forwardHost string) http.Handler {
 		response.Header.Set("Access-Control-Allow-Origin", cfg.CORSAllowOrigin)
 		response.Header.Set("Access-Control-Allow-Methods", cfg.CORSAllowMethods)
 
+		// Session rotation: delete old session and create new one
+		var oldSessionData redis.SessionData
 		if existedSessionId == nil {
-			slog.Info("No session cookie found, creating new session")
+			slog.Info("No existing session found, skipping session rotation")
+			return nil
 		} else {
+			// Retrieve old session data before deletion
+			sessionCookie, _ := response.Request.Cookie(cfg.SessionCookieName)
+			if sessionCookie != nil {
+				oldSessionData, _ = redis.GetSessionValue(sessionCookie.Value)
+			}
 			redis.DeleteSession(*existedSessionId)
 		}
 
-		session_id := uuid.New()
-		cookieValue := fmt.Sprintf("%s=%s", cfg.SessionCookieName, session_id.String())
+		// Create new session with rotated ID
+		newSessionID := uuid.New()
+		cookieValue := fmt.Sprintf("%s=%s", cfg.SessionCookieName, newSessionID.String())
 		if cfg.SessionCookieSecure {
 			cookieValue += "; Secure"
 		}
 		response.Header.Set("Set-Cookie", cookieValue)
 
-		// Store the session in Redis with the client's IP address
-		err := redis.SetSession(session_id.String(), response.Request.RemoteAddr)
+		// Store the session with existing SessionData (rotation)
+		err := redis.SetSession(newSessionID.String(), oldSessionData)
 		if err != nil {
 			slog.Error("Error setting session in Redis", "error", err)
 		} else {
-			slog.Info("Session stored in Redis", "key", "session:"+session_id.String(), "value", response.Request.RemoteAddr)
+			slog.Info("Session rotated in Redis", "key", "session:"+newSessionID.String(), "userId", oldSessionData.UserID)
 		}
 
 		return nil
