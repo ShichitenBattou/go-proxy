@@ -31,9 +31,10 @@ type Config struct {
 	StateKeyPrefix    string
 
 	// Session/Cookie settings
-	// TODO: Add HttpOnly and SameSite attributes for enhanced security
-	SessionCookieName   string
-	SessionCookieSecure bool
+	SessionCookieName     string
+	SessionCookieSecure   bool
+	SessionCookieHttpOnly bool
+	SessionCookieSameSite string // "Strict", "Lax", "None"
 
 	// CORS settings
 	CORSAllowOrigin  string
@@ -93,8 +94,10 @@ func GetConfig() *Config {
 			StateKeyPrefix:   getEnv("STATE_KEY_PREFIX", "state:"),
 
 			// Session/Cookie settings
-			SessionCookieName:   getEnv("SESSION_COOKIE_NAME", "Session-Id"),
-			SessionCookieSecure: getEnvBool("SESSION_COOKIE_SECURE", true),
+			SessionCookieName:     getEnv("SESSION_COOKIE_NAME", "Session-Id"),
+			SessionCookieSecure:   getEnvBool("SESSION_COOKIE_SECURE", true),
+			SessionCookieHttpOnly: getEnvBool("SESSION_COOKIE_HTTPONLY", true),
+			SessionCookieSameSite: getEnv("SESSION_COOKIE_SAMESITE", "Strict"),
 
 			// CORS settings
 			CORSAllowOrigin:  getEnv("CORS_ALLOW_ORIGIN", "https://localhost:3000"),

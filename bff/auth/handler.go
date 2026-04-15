@@ -6,7 +6,6 @@ import (
 	"bff/utils"
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -16,7 +15,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func getOAuth2Config() *oauth2.Config {
+func getOAuth2Config() (*oauth2.Config, error) {
 	cfg := setup.GetConfig()
 	ctx := oidc.ClientContext(context.Background(), utils.GetInternalHTTPClient())
 	provider, err := oidc.NewProvider(ctx, cfg.OIDCProviderURL)
@@ -25,8 +24,8 @@ func getOAuth2Config() *oauth2.Config {
 			slog.Error("OIDC provider initialization timed out. Ensure Keycloak is running and accessible", "providerURL", cfg.OIDCProviderURL, "error", err)
 		} else {
 			slog.Error("Failed to initialize OIDC provider", "error", err)
-			// panic(err)
 		}
+		return nil, err
 	}
 
 	oauth2Config := oauth2.Config{
@@ -36,7 +35,7 @@ func getOAuth2Config() *oauth2.Config {
 		Endpoint:     provider.Endpoint(),
 		Scopes:       cfg.OAuth2Scopes,
 	}
-	return &oauth2Config
+	return &oauth2Config, nil
 }
 
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +48,13 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		slog.Debug("Successfully connected to Keycloak", "statusCode", res.StatusCode, "content", res.Body)
 	}
-	oauth2Config := getOAuth2Config()
+
+	oauth2Config, err := getOAuth2Config()
+	if err != nil {
+		slog.Error("Failed to get OAuth2 config", "error", err)
+		http.Error(w, "Authentication service unavailable", http.StatusServiceUnavailable)
+		return
+	}
 
 	// Create a unique state value and store it in Redis with the original redirect URL
 	stateId := uuid.New()
@@ -66,29 +71,132 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, oauth2Config.AuthCodeURL(stateId.String()), http.StatusFound)
 }
 
+// IDTokenClaims represents the claims from an OIDC ID Token
+type IDTokenClaims struct {
+	Sub           string `json:"sub"`
+	Email         string `json:"email"`
+	EmailVerified bool   `json:"email_verified"`
+	Name          string `json:"name"`
+}
+
 func CallbackHandler(w http.ResponseWriter, r *http.Request) {
+	cfg := setup.GetConfig()
 	slog.Info("Received callback request", "url", r.URL.String(), "requestedHost", r.Host, "ip", r.RemoteAddr)
 	slog.Debug("Request parameters", "query", r.URL.Query().Encode())
-	_, err := redis.GetStateValue(uuid.MustParse(r.URL.Query().Get("state")))
+
+	// Validate and retrieve state token (CSRF protection)
+	stateParam := r.URL.Query().Get("state")
+	stateUUID, err := uuid.Parse(stateParam)
 	if err != nil {
-		slog.Error("Failed to get state from Redis", "error", err)
-	}
-	if redis.DeleteState(uuid.MustParse(r.URL.Query().Get("state"))) != nil {
-		slog.Error("Failed to delete state from Redis", "error", err)
-	}
-	
-	oauth2Config := getOAuth2Config()
-	token, err := oauth2Config.Exchange(context.Background(), r.URL.Query().Get("code"))
-	if err != nil {
-		slog.Error("Failed to exchange code for token", "error", err)
-		fmt.Fprint(w, "Authentication failed")
-		w.WriteHeader(http.StatusUnauthorized)
+		slog.Error("Invalid state parameter", "state", stateParam, "error", err)
+		http.Error(w, "Invalid state parameter", http.StatusForbidden)
 		return
 	}
-	slog.Info("Successfully exchanged code for token", "accessToken", token.AccessToken)
 
-	
+	stateData, err := redis.GetStateValue(stateUUID)
+	if err != nil {
+		slog.Error("Failed to get state from Redis", "state", stateUUID, "error", err)
+		http.Error(w, "Invalid state parameter", http.StatusForbidden)
+		return
+	}
 
-	fmt.Fprint(w, "Callback endpoint")
-	w.WriteHeader(http.StatusNotImplemented)
+	// Delete state token (one-time use)
+	if err := redis.DeleteState(stateUUID); err != nil {
+		slog.Error("Failed to delete state from Redis", "error", err)
+	}
+
+	// Exchange authorization code for tokens
+	ctx := oidc.ClientContext(context.Background(), utils.GetInternalHTTPClient())
+	oauth2Config, err := getOAuth2Config()
+	if err != nil {
+		slog.Error("Failed to get OAuth2 config", "error", err)
+		http.Error(w, "Authentication service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	token, err := oauth2Config.Exchange(ctx, r.URL.Query().Get("code"))
+	if err != nil {
+		slog.Error("Failed to exchange code for token", "error", err)
+		http.Error(w, "Authentication failed", http.StatusUnauthorized)
+		return
+	}
+	slog.Info("Successfully exchanged code for tokens")
+
+	// Extract and verify ID Token
+	rawIDToken, ok := token.Extra("id_token").(string)
+	if !ok {
+		slog.Error("ID Token not found in token response")
+		http.Error(w, "Authentication failed", http.StatusUnauthorized)
+		return
+	}
+
+	provider, err := oidc.NewProvider(ctx, cfg.OIDCProviderURL)
+	if err != nil {
+		slog.Error("Failed to get OIDC provider", "error", err)
+		http.Error(w, "Authentication failed", http.StatusInternalServerError)
+		return
+	}
+
+	verifier := provider.Verifier(&oidc.Config{ClientID: cfg.OAuth2ClientID})
+	idToken, err := verifier.Verify(ctx, rawIDToken)
+	if err != nil {
+		slog.Error("Failed to verify ID Token", "error", err)
+		http.Error(w, "Invalid ID token", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse claims from ID Token
+	var claims IDTokenClaims
+	if err := idToken.Claims(&claims); err != nil {
+		slog.Error("Failed to parse ID Token claims", "error", err)
+		http.Error(w, "Authentication failed", http.StatusInternalServerError)
+		return
+	}
+
+	slog.Info("ID Token verified", "sub", claims.Sub, "email", claims.Email)
+
+	// Create session data
+	sessionData := redis.SessionData{
+		UserID:       claims.Sub,
+		Email:        claims.Email,
+		Name:         claims.Name,
+		IDToken:      rawIDToken,
+		AccessToken:  token.AccessToken,
+		RefreshToken: token.RefreshToken,
+	}
+
+	// Generate session ID and save to Redis
+	sessionID := uuid.New().String()
+	if err := redis.SetSession(sessionID, sessionData); err != nil {
+		slog.Error("Failed to save session to Redis", "error", err)
+		http.Error(w, "Failed to create session", http.StatusInternalServerError)
+		return
+	}
+
+	// Set session cookie with security attributes
+	sameSite := http.SameSiteStrictMode
+	if cfg.SessionCookieSameSite == "Lax" {
+		sameSite = http.SameSiteLaxMode
+	} else if cfg.SessionCookieSameSite == "None" {
+		sameSite = http.SameSiteNoneMode
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     cfg.SessionCookieName,
+		Value:    sessionID,
+		Path:     "/",
+		Secure:   cfg.SessionCookieSecure,
+		HttpOnly: cfg.SessionCookieHttpOnly,
+		SameSite: sameSite,
+	})
+
+	slog.Info("Session created", "sessionId", sessionID, "userId", claims.Sub)
+
+	// Redirect to original URL
+	redirectURL := stateData.RedirectURL.String()
+	if redirectURL == "" {
+		redirectURL = "/"
+	}
+	slog.Info("Redirecting to original URL", "url", redirectURL)
+	http.Redirect(w, r, redirectURL, http.StatusFound)
 }

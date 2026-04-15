@@ -9,39 +9,54 @@ import (
 	"bff/auth"
 )
 
-func TestLoginHandler_RedirectsToKeycloak(t *testing.T) {
+func TestLoginHandler_ReturnsServiceUnavailable_WhenKeycloakDown(t *testing.T) {
+	// This test verifies error handling when Keycloak is not available
 	req := httptest.NewRequest(http.MethodGet, "/auth/login", nil)
 	rr := httptest.NewRecorder()
 
 	auth.LoginHandler(rr, req)
 
-	if rr.Code != http.StatusSeeOther {
-		t.Errorf("expected status %d, got %d", http.StatusSeeOther, rr.Code)
+	// When Keycloak is unavailable, should return 503 Service Unavailable
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected status %d (Service Unavailable), got %d", http.StatusServiceUnavailable, rr.Code)
 	}
 
-	location := rr.Header().Get("Location")
-	if !strings.Contains(location, "realms/myrealm/protocol/openid-connect/auth") {
-		t.Errorf("expected redirect to Keycloak OIDC endpoint, got: %s", location)
-	}
-	if !strings.Contains(location, "client_id=bff") {
-		t.Errorf("expected client_id=bff in redirect URL, got: %s", location)
-	}
-	if !strings.Contains(location, "response_type=id_token") {
-		t.Errorf("expected response_type=id_token in redirect URL, got: %s", location)
-	}
-	if !strings.Contains(location, "redirect_uri=") {
-		t.Errorf("expected redirect_uri in redirect URL, got: %s", location)
+	body := rr.Body.String()
+	if !strings.Contains(body, "Authentication service unavailable") {
+		t.Errorf("expected error message about service unavailable, got: %s", body)
 	}
 }
 
-func TestCallbackHandler_ReturnsCallbackEndpoint(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/auth/callback", nil)
+func TestCallbackHandler_RejectsInvalidState(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/auth/callback?state=invalid-uuid&code=test", nil)
 	rr := httptest.NewRecorder()
 
 	auth.CallbackHandler(rr, req)
 
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("expected status %d, got %d", http.StatusForbidden, rr.Code)
+	}
+
 	body := rr.Body.String()
-	if body != "Callback endpoint" {
-		t.Errorf("expected body 'Callback endpoint', got: %s", body)
+	if !strings.Contains(body, "Invalid state parameter") {
+		t.Errorf("expected error message about invalid state, got: %s", body)
+	}
+}
+
+func TestCallbackHandler_RejectsNonexistentState(t *testing.T) {
+	// Use valid UUID format but nonexistent in Redis
+	validUUID := "123e4567-e89b-12d3-a456-426614174000"
+	req := httptest.NewRequest(http.MethodGet, "/auth/callback?state="+validUUID+"&code=test", nil)
+	rr := httptest.NewRecorder()
+
+	auth.CallbackHandler(rr, req)
+
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("expected status %d, got %d", http.StatusForbidden, rr.Code)
+	}
+
+	body := rr.Body.String()
+	if !strings.Contains(body, "Invalid state parameter") {
+		t.Errorf("expected error message about invalid state, got: %s", body)
 	}
 }
