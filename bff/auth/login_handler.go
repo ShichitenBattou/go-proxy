@@ -6,18 +6,37 @@ import (
 	"bff/utils"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/google/uuid"
 )
 
-type LoginRequest struct {
-	RedirectURL string `json:"redirectUrl"`
-}
-
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	cfg := setup.GetConfig()
 	slog.Info("Received login request", "url", r.URL.String(), "requestedHost", r.Host, "ip", r.RemoteAddr)
+
+	// Get redirect_url from query parameters (validate early for better error messages)
+	redirectURLStr := r.URL.Query().Get("redirect_url")
+	if redirectURLStr == "" {
+		redirectURLStr = "/" // Default to root page
+	}
+
+	// Parse and validate redirect URL
+	redirectURL, err := url.Parse(redirectURLStr)
+	if err != nil {
+		slog.Error("Invalid redirect_url parameter", "error", err, "url", redirectURLStr)
+		http.Error(w, "Invalid redirect URL", http.StatusBadRequest)
+		return
+	}
+
+	// Security: Prevent open redirect - if absolute URL, extract path only
+	if redirectURL.IsAbs() {
+		slog.Warn("Absolute URL in redirect_url, using path only", "url", redirectURLStr)
+		redirectURL = &url.URL{Path: redirectURL.Path, RawQuery: redirectURL.RawQuery}
+	}
+
+	// Test Keycloak connectivity
 	client := utils.GetInternalHTTPClient()
 	res, err := client.Get(cfg.OIDCProviderURL)
 	if err != nil {
@@ -33,14 +52,16 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create a unique state value and store it in Redis with the original redirect URL
+	// Create a unique state value and store it in Redis with the redirect URL
 	stateId := uuid.New()
 	stateData := redis.StateData{
-		RedirectURL: *r.URL,
+		RedirectURL: *redirectURL,
 		CreatedAt:   time.Now().UTC(),
 	}
-	if redis.SetState(stateId, stateData) != nil {
+	if err := redis.SetState(stateId, stateData); err != nil {
 		slog.Error("Failed to set state in Redis", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
 	}
 
 	slog.Debug("Redirecting to Keycloak login page", "url", oauth2Config.AuthCodeURL(stateId.String()))
