@@ -5,71 +5,12 @@ import (
 	"bff/setup"
 	"bff/utils"
 	"context"
-	"errors"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/google/uuid"
-	"golang.org/x/oauth2"
 )
-
-func getOAuth2Config() (*oauth2.Config, error) {
-	cfg := setup.GetConfig()
-	ctx := oidc.ClientContext(context.Background(), utils.GetInternalHTTPClient())
-	provider, err := oidc.NewProvider(ctx, cfg.OIDCProviderURL)
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			slog.Error("OIDC provider initialization timed out. Ensure Keycloak is running and accessible", "providerURL", cfg.OIDCProviderURL, "error", err)
-		} else {
-			slog.Error("Failed to initialize OIDC provider", "error", err)
-		}
-		return nil, err
-	}
-
-	oauth2Config := oauth2.Config{
-		ClientID:     cfg.OAuth2ClientID,
-		ClientSecret: cfg.OAuth2ClientSecret,
-		RedirectURL:  cfg.OAuth2RedirectURL,
-		Endpoint:     provider.Endpoint(),
-		Scopes:       cfg.OAuth2Scopes,
-	}
-	return &oauth2Config, nil
-}
-
-func LoginHandler(w http.ResponseWriter, r *http.Request) {
-	cfg := setup.GetConfig()
-	slog.Info("Received login request", "url", r.URL.String(), "requestedHost", r.Host, "ip", r.RemoteAddr)
-	client := utils.GetInternalHTTPClient()
-	res, err := client.Get(cfg.OIDCProviderURL)
-	if err != nil {
-		slog.Debug("Error connecting to Keycloak", "error", err)
-	} else {
-		slog.Debug("Successfully connected to Keycloak", "statusCode", res.StatusCode, "content", res.Body)
-	}
-
-	oauth2Config, err := getOAuth2Config()
-	if err != nil {
-		slog.Error("Failed to get OAuth2 config", "error", err)
-		http.Error(w, "Authentication service unavailable", http.StatusServiceUnavailable)
-		return
-	}
-
-	// Create a unique state value and store it in Redis with the original redirect URL
-	stateId := uuid.New()
-	stateData := redis.StateData{
-		RedirectURL: *r.URL,
-		CreatedAt:   time.Now().UTC(),
-	}
-	if redis.SetState(stateId, stateData) != nil {
-		slog.Error("Failed to set state in Redis", "error", err)
-	}
-
-	slog.Debug("Redirecting to Keycloak login page", "url", oauth2Config.AuthCodeURL(stateId.String()))
-
-	http.Redirect(w, r, oauth2Config.AuthCodeURL(stateId.String()), http.StatusFound)
-}
 
 // IDTokenClaims represents the claims from an OIDC ID Token
 type IDTokenClaims struct {
