@@ -9,3 +9,8 @@ tmp/
 *.pem
 jwks.json
 *.log
+
+*.key
+*.crt
+*.csr
+*.srl
