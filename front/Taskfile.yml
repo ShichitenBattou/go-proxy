@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+tasks:
+  generate-keys:
+    desc: Generate a Private/Public key pair for JWT singing
+    cmds:
+      # - cmd: openssl genrsa -out private-key.pem 3072
+      # - cmd: openssl rsa -in private-key.pem -pubout -out public-key.pem
+      # - cmd: openssl req -new -key private-key.pem -out csr.pem -subj "/CN=auth.local"
+      # - cmd: openssl x509 -req -in csr.pem -signkey private-key.pem -out cert.pem
+      - cmd: openssl req -x509 -nodes -days 365 -newkey rsa:3072 -keyout key.pem -out cert.pem -config san.conf -extensions req_ext
+
+  generate-root-ca:
+    desc: Generate a Root CA certificate and private key
+    cmds:
+      - cmd: openssl genrsa -out rootCA.key 4096
+      - cmd: openssl req -x509 -new -nodes -key rootCA.key -sha256 -days 365 -out rootCA.crt -config rootCA.conf
+
+  generate-client-cert:
+    desc: Generate a client certificate signed by the Root CA
+    cmds:
+      - cmd: openssl genrsa -out server.key 3072
+      - cmd: openssl req -new -key server.key -out server.csr -subj "/CN=auth.local"
+      - cmd: openssl x509 -req -in server.csr -CA rootCA.crt -CAkey rootCA.key -CAcreateserial -out server.crt -days 365 -sha256 -extfile san.conf -extensions req_ext
+  

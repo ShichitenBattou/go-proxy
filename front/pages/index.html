@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go Proxy</title>
+    <link rel="stylesheet" href="/index.css">
+</head>
+
+<body>
+    <div id="header">
+        <div class="left-header">
+            <h1>Go Proxy</h1>
+        </div>
+        <div class="right-header">
+            <div class="button" id="sign_up"> <a
+                    href="https://localhost/idp/realms/go-proxy/protocol/openid-connect/registrations?client_id=bff&response_type=code&scope=openid&redirect_uri=https://localhost/auth/callback">
+                    Sign
+                    Up</a>
+            </div>
+            <div class="button" id="login">
+                <a href="https://localhost/api/auth/login">Login</a>
+            </div>
+        </div>
+    </div>
+    <div id="main_content">
+        <h1>Welcome to Go Proxy</h1>
+        <div id="posts">
+            <h2>Posts</h2>
+        </div>
+    </div>
+</body>
+
+<script src="/index.js"></script>
+<script>
+    getPosts();
+</script>
+
+</html>
