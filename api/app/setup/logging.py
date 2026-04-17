@@ -20,6 +20,11 @@ def configure_logging() -> None:
         sh.setFormatter(formatter)
         logging.getLogger().addHandler(sh)
 
+        fh = TimedRotatingFileHandler("api.log", when="midnight", interval=1, backupCount=7)
+        fh.setLevel(logging.DEBUG)
+        fh.setFormatter(formatter)
+        logging.getLogger().addHandler(fh)
+
     else:
         logging.basicConfig(level=logging.INFO)
 
