@@ -5,6 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.commands.create_post import CreatePostInteractor
 from app.application.commands.create_user import CreateUserInteractor
+from app.application.commands.deactivate_user import DeactivateUserInteractor
+from app.application.queries.get_post import GetPostInteractor
 from app.application.queries.get_user import GetUserInteractor
 from app.application.queries.list_posts import ListPostsInteractor
 from app.domain.entities.user import User
@@ -32,6 +34,10 @@ def get_create_user_interactor(user_repo: UserRepoDep) -> CreateUserInteractor:
     return CreateUserInteractor(user_repo)
 
 
+def get_deactivate_user_interactor(user_repo: UserRepoDep) -> DeactivateUserInteractor:
+    return DeactivateUserInteractor(user_repo)
+
+
 def get_create_post_interactor(
     post_repo: PostRepoDep,
     user_repo: UserRepoDep,
@@ -41,6 +47,10 @@ def get_create_post_interactor(
 
 def get_get_user_interactor(user_repo: UserRepoDep) -> GetUserInteractor:
     return GetUserInteractor(user_repo)
+
+
+def get_get_post_interactor(post_repo: PostRepoDep) -> GetPostInteractor:
+    return GetPostInteractor(post_repo)
 
 
 def get_list_posts_interactor(post_repo: PostRepoDep) -> ListPostsInteractor:

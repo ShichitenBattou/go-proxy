@@ -7,11 +7,13 @@ from pydantic import BaseModel
 
 from app.application.commands.create_post import CreatePostCommand, CreatePostInteractor
 from app.application.exceptions import UserNotAuthorizedError
+from app.application.queries.get_post import GetPostInteractor, GetPostQuery
 from app.application.queries.list_posts import ListPostsInteractor, ListPostsQuery
-from app.domain.exceptions import UserNotFoundError
+from app.domain.exceptions import PostNotFoundError, UserNotFoundError
 from app.presentation.dependencies import (
     CurrentUser,
     get_create_post_interactor,
+    get_get_post_interactor,
     get_list_posts_interactor,
 )
 
@@ -87,3 +89,24 @@ async def list_posts(
         )
         for p in posts
     ]
+
+
+@router.get("/{post_id}", response_model=PostResponse)
+async def get_post(
+    post_id: UUID,
+    interactor: Annotated[GetPostInteractor, Depends(get_get_post_interactor)],
+) -> PostResponse:
+    try:
+        post = await interactor.execute(GetPostQuery(post_id=post_id))
+    except PostNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return PostResponse(
+        id=post.id,
+        author_id=post.author_id,
+        title=post.title,
+        body=post.body,
+        tags=post.tags,
+        created_at=post.created_at,
+        version=post.version,
+    )
