@@ -7,7 +7,7 @@ tasks:
     desc: Run the development server
     cmds:
       - cmd: echo "Starting development server..."
-      - cmd: uv run uvicorn main:app --reload
+      - cmd: uv run fastapi dev main.py
       - cmd: echo "done"
 
   compose:

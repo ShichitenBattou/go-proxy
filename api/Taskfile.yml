@@ -14,6 +14,17 @@ tasks:
       - cmd: uv sync
       - cmd: echo "done"
 
+  lint:
+    desc: Run all linters (ruff, mypy)
+    cmds:
+      - task: ruff
+      - task: mypy
+
+  build:
+    desc: Build check (no-op for Python)
+    cmds:
+      - cmd: echo "No build step for Python project"
+
   test:
     desc: Run tests
     cmds:
