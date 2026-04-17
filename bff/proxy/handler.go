@@ -38,13 +38,20 @@ func NewHandler(forwardHost string) http.Handler {
 
 		// Check if the session ID exists in Redis
 		hashedSessionId := hashToken(sessionID.Value)
-		_, err = redis.GetSessionValue(sessionID.Value)
+		sessionData, err := redis.GetSessionValue(sessionID.Value)
 		if err != nil {
 			slog.Info("Session not found in Redis", "sessionId", sessionID.Value)
 			existedSessionId = nil
 		} else {
 			slog.Info("Session found in Redis", "sessionId", sessionID.Value)
 			existedSessionId = &hashedSessionId
+
+			// Add Authorization header with AccessToken
+			if sessionData.AccessToken != "" {
+				request.Out.Header.Set("Authorization", "Bearer "+sessionData.AccessToken)
+			} else {
+				slog.Warn("AccessToken is empty in session", "sessionId", sessionID.Value)
+			}
 		}
 
 		request.Out.Header["X-Forwarded-For"] = request.In.Header["X-Forwarded-For"]
