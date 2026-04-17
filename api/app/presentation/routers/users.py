@@ -5,9 +5,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.application.commands.create_user import CreateUserCommand, CreateUserInteractor
+from app.application.commands.deactivate_user import DeactivateUserCommand, DeactivateUserInteractor
 from app.application.queries.get_user import GetUserInteractor
 from app.domain.entities.user import UserRole
-from app.presentation.dependencies import get_create_user_interactor, get_get_user_interactor
+from app.domain.exceptions import UserNotFoundError
+from app.presentation.dependencies import (
+    get_create_user_interactor,
+    get_deactivate_user_interactor,
+    get_get_user_interactor,
+)
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -51,3 +57,14 @@ async def get_user(
         role=user.role,
         is_active=user.is_active,
     )
+
+
+@router.delete("/{user_id}", status_code=204)
+async def deactivate_user(
+    user_id: UUID,
+    interactor: Annotated[DeactivateUserInteractor, Depends(get_deactivate_user_interactor)],
+) -> None:
+    try:
+        await interactor.execute(DeactivateUserCommand(user_id=user_id))
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found")
