@@ -1,6 +1,12 @@
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING
+
+from app.presentation.execption_handler import add_exception_handler
+
+if TYPE_CHECKING:
+    pass
 
 from fastapi import FastAPI
 
@@ -50,6 +56,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(title="API", lifespan=lifespan)
+
+add_exception_handler(app)
 
 app.include_router(users.router)
 app.include_router(posts.router)
