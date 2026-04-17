@@ -4,9 +4,10 @@ from uuid import UUID, uuid4
 import pytest
 
 from app.application.commands.create_post import CreatePostCommand, CreatePostInteractor
+from app.application.exceptions import UserNotAuthorizedError
 from app.domain.entities.post import Post
 from app.domain.entities.user import User, UserRole
-from app.domain.exceptions import UserNotAuthorizedError, UserNotFoundError
+from app.domain.exceptions import UserNotFoundError
 
 
 def make_user(role: UserRole = UserRole.USER, is_active: bool = True) -> User:

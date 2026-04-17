@@ -2,9 +2,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from app.application.exceptions import UserNotAuthorizedError
 from app.domain.entities.post import Post
 from app.domain.entities.user import UserRole
-from app.domain.exceptions import UserNotAuthorizedError, UserNotFoundError
+from app.domain.exceptions import UserNotFoundError
 from app.domain.ports.post_repository import PostRepository
 from app.domain.ports.user_repository import UserRepository
 

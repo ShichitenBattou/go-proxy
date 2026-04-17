@@ -15,7 +15,3 @@ class PostNotFoundError(DomainError):
     def __init__(self, post_id: UUID) -> None:
         super().__init__(f"Post {post_id} not found")
         self.post_id = post_id
-
-
-class UserNotAuthorizedError(DomainError):
-    pass
