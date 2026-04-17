@@ -7,7 +7,7 @@ from tests.presentation.conftest import InMemoryUserRepository
 
 class TestCreateUser:
     async def test_create_user_returns_201(self, client: AsyncClient) -> None:
-        response = await client.post("/users/", json={"keycloak_sub": "new-sub-001"})
+        response = await client.post("/users", json={"keycloak_sub": "new-sub-001"})
 
         assert response.status_code == 201
         body = response.json()
@@ -19,8 +19,8 @@ class TestCreateUser:
     async def test_create_user_idempotent_returns_201(self, client: AsyncClient) -> None:
         payload = {"keycloak_sub": "idempotent-sub"}
 
-        first = await client.post("/users/", json=payload)
-        second = await client.post("/users/", json=payload)
+        first = await client.post("/users", json=payload)
+        second = await client.post("/users", json=payload)
 
         assert first.status_code == 201
         assert second.status_code == 201
@@ -32,7 +32,7 @@ class TestGetUser:
         self, client: AsyncClient, user_repo: InMemoryUserRepository
     ) -> None:
         # Create a user first, then retrieve it.
-        create_resp = await client.post("/users/", json={"keycloak_sub": "get-sub"})
+        create_resp = await client.post("/users", json={"keycloak_sub": "get-sub"})
         user_id = create_resp.json()["id"]
 
         response = await client.get(f"/users/{user_id}")

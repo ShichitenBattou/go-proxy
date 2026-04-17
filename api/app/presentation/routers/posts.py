@@ -6,8 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.application.commands.create_post import CreatePostCommand, CreatePostInteractor
+from app.application.exceptions import UserNotAuthorizedError
 from app.application.queries.list_posts import ListPostsInteractor, ListPostsQuery
-from app.domain.exceptions import UserNotAuthorizedError, UserNotFoundError
+from app.domain.exceptions import UserNotFoundError
 from app.presentation.dependencies import (
     CurrentUser,
     get_create_post_interactor,
@@ -33,7 +34,7 @@ class PostResponse(BaseModel):
     version: int
 
 
-@router.post("/", status_code=201, response_model=PostResponse)
+@router.post("", status_code=201, response_model=PostResponse)
 async def create_post(
     body: CreatePostRequest,
     current_user: CurrentUser,
@@ -64,7 +65,7 @@ async def create_post(
     )
 
 
-@router.get("/", response_model=list[PostResponse])
+@router.get("", response_model=list[PostResponse])
 async def list_posts(
     interactor: Annotated[ListPostsInteractor, Depends(get_list_posts_interactor)],
     author_id: UUID | None = None,

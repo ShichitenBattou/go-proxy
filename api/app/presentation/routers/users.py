@@ -23,7 +23,7 @@ class UserResponse(BaseModel):
     is_active: bool
 
 
-@router.post("/", status_code=201, response_model=UserResponse)
+@router.post("", status_code=201, response_model=UserResponse)
 async def create_user(
     body: CreateUserRequest,
     interactor: Annotated[CreateUserInteractor, Depends(get_create_user_interactor)],

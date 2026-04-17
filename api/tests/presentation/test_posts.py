@@ -23,12 +23,12 @@ _CREATE_PAYLOAD = {"title": "My Post", "body": "Content here", "tags": ["python"
 
 class TestCreatePost:
     async def test_create_post_returns_201(self, client: AsyncClient) -> None:
-        response = await client.post("/posts/", json=_CREATE_PAYLOAD)
+        response = await client.post("/posts", json=_CREATE_PAYLOAD)
 
         assert response.status_code == 201
 
     async def test_create_post_response_schema(self, client: AsyncClient) -> None:
-        response = await client.post("/posts/", json=_CREATE_PAYLOAD)
+        response = await client.post("/posts", json=_CREATE_PAYLOAD)
 
         assert response.status_code == 201
         body = response.json()
@@ -58,7 +58,7 @@ class TestCreatePost:
         app.dependency_overrides[get_list_posts_interactor] = lambda: ListPostsInteractor(post_repo)
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-            response = await ac.post("/posts/", json=_CREATE_PAYLOAD)
+            response = await ac.post("/posts", json=_CREATE_PAYLOAD)
 
         assert response.status_code == 403
 
@@ -81,19 +81,19 @@ class TestCreatePost:
         app.dependency_overrides[get_list_posts_interactor] = lambda: ListPostsInteractor(post_repo)
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-            response = await ac.post("/posts/", json=_CREATE_PAYLOAD)
+            response = await ac.post("/posts", json=_CREATE_PAYLOAD)
 
         assert response.status_code == 403
 
 
 class TestListPosts:
     async def test_list_posts_returns_200(self, client: AsyncClient) -> None:
-        response = await client.get("/posts/")
+        response = await client.get("/posts")
 
         assert response.status_code == 200
 
     async def test_list_posts_empty(self, client: AsyncClient) -> None:
-        response = await client.get("/posts/")
+        response = await client.get("/posts")
 
         assert response.status_code == 200
         assert response.json() == []
@@ -129,7 +129,7 @@ class TestListPosts:
             )
         )
 
-        response = await client.get(f"/posts/?author_id={test_user.id}")
+        response = await client.get(f"/posts?author_id={test_user.id}")
 
         assert response.status_code == 200
         body = response.json()
