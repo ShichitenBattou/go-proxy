@@ -181,9 +181,7 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 
 ```bash
 # .env
-ALLOWED_REDIRECT_PATHS=/,/dashboard,/profile,/settings
-# または正規表現
-ALLOWED_REDIRECT_PATH_PATTERN=^/(dashboard|profile|settings).*$
+ALLOWED_REDIRECT_PATH_PATTERN=^/(dashboard|profile|settings)(/.*)?$
 ```
 
 **3-2. setup/config.go に追加:**
@@ -191,8 +189,19 @@ ALLOWED_REDIRECT_PATH_PATTERN=^/(dashboard|profile|settings).*$
 ```go
 type Config struct {
     // ...
-    AllowedRedirectPaths []string      `env:"ALLOWED_REDIRECT_PATHS" envSeparator:","`
-    AllowedRedirectPathPattern string  `env:"ALLOWED_REDIRECT_PATH_PATTERN"`
+    AllowedRedirectPathPattern string `env:"ALLOWED_REDIRECT_PATH_PATTERN"`
+}
+
+// Validate validates the configuration and compiles regex patterns
+func (cfg *Config) Validate() error {
+    // Compile redirect path pattern to detect errors early
+    if cfg.AllowedRedirectPathPattern != "" {
+        _, err := regexp.Compile(cfg.AllowedRedirectPathPattern)
+        if err != nil {
+            return fmt.Errorf("invalid ALLOWED_REDIRECT_PATH_PATTERN: %w", err)
+        }
+    }
+    return nil
 }
 ```
 
@@ -248,39 +257,32 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 // 👈 追加: ホワイトリスト検証関数
 func isAllowedRedirectPath(path string, cfg *setup.Config) bool {
-    // パターンマッチングが設定されている場合
-    if cfg.AllowedRedirectPathPattern != "" {
-        matched, err := regexp.MatchString(cfg.AllowedRedirectPathPattern, path)
-        if err != nil {
-            slog.Error("Invalid redirect path pattern", "pattern", cfg.AllowedRedirectPathPattern, "error", err)
-            return false
-        }
-        return matched
+    // パターンが設定されていない場合は全て許可（後方互換性）
+    if cfg.AllowedRedirectPathPattern == "" {
+        return true
     }
 
-    // ホワイトリストが設定されている場合
-    if len(cfg.AllowedRedirectPaths) > 0 {
-        for _, allowed := range cfg.AllowedRedirectPaths {
-            if path == allowed || strings.HasPrefix(path, allowed+"/") {
-                return true
-            }
-        }
+    // 正規表現でマッチング
+    matched, err := regexp.MatchString(cfg.AllowedRedirectPathPattern, path)
+    if err != nil {
+        // 起動時バリデーションで検出されるはずだが、念のためログ出力
+        slog.Error("Invalid redirect path pattern", "pattern", cfg.AllowedRedirectPathPattern, "error", err)
         return false
     }
-
-    // 設定がない場合は全て許可（後方互換性）
-    return true
+    return matched
 }
 ```
 
 **設定例:**
 
-| ユースケース | 設定方法 | 例 |
-|--------------|----------|-----|
-| **特定のパスのみ許可** | `ALLOWED_REDIRECT_PATHS` | `/,/dashboard,/profile` |
-| **前方一致で許可** | `ALLOWED_REDIRECT_PATHS` | `/app` → `/app/dashboard` も OK |
-| **正規表現で柔軟に許可** | `ALLOWED_REDIRECT_PATH_PATTERN` | `^/(dashboard\|profile\|settings).*$` |
-| **すべて許可（デフォルト）** | 設定なし | 後方互換性のため |
+| ユースケース | 正規表現パターン | 説明 |
+|--------------|------------------|------|
+| **ルートのみ許可** | `^/$` | `/` のみ許可 |
+| **特定のパスのみ許可** | `^/(dashboard\|profile\|settings)$` | `/dashboard`, `/profile`, `/settings` のみ |
+| **サブパスも許可** | `^/(dashboard\|profile\|settings)(/.*)?$` | `/dashboard/users` なども許可 |
+| **前方一致で許可** | `^/app/.*$` | `/app/` 以下すべて許可 |
+| **複雑な条件** | `^/(public\|user/[^/]+/dashboard)$` | `/public` と `/user/*/dashboard` を許可 |
+| **すべて許可（非推奨）** | `^/.*$` または設定なし | セキュリティリスクあり |
 
 ### 4. 不要な接続テストの削除（Minor）
 
@@ -306,8 +308,8 @@ if err != nil {
 
 **1. setup/config.go:**
 - `StateTTL time.Duration` フィールドを追加（デフォルト: `5m`）
-- `AllowedRedirectPaths []string` フィールドを追加
 - `AllowedRedirectPathPattern string` フィールドを追加
+- `Validate() error` メソッドを追加（起動時に正規表現をコンパイル検証）
 
 **2. redis/redis.go:**
 - `SetState()` — TTL を `cfg.StateTTL` に変更（行123）
@@ -361,17 +363,28 @@ if err != nil {
 **auth/validation_test.go (新規):**
 ```go
 // isAllowedRedirectPath のユニットテスト
-- ホワイトリスト: 完全一致
-- ホワイトリスト: 前方一致（/app → /app/dashboard）
-- 正規表現パターン: マッチング成功・失敗
-- 設定なし: 全て許可
+- 正規表現パターン: 完全一致
+- 正規表現パターン: 前方一致（/app/.* → /app/dashboard）
+- 正規表現パターン: サブパス含む ((/.*)?$ パターン)
+- 正規表現パターン: マッチ失敗
+- 正規表現パターン: 不正な正規表現（エラーハンドリング）
+- パターン未設定: 全て許可（後方互換性）
+```
+
+**setup/config_test.go (追加):**
+```go
+// Config.Validate() のテスト
+- 正常系: 有効な正規表現パターン
+- 異常系: 不正な正規表現パターン（エラーを返す）
+- 正常系: パターン未設定（エラーなし）
 ```
 
 ### 実装ステップ
 
 1. **setup/config.go の修正**
-   - `StateTTL`, `AllowedRedirectPaths`, `AllowedRedirectPathPattern` を追加
-   - `.env.example` を更新
+   - `StateTTL`, `AllowedRedirectPathPattern` フィールドを追加
+   - `Validate()` メソッドを追加（正規表現のコンパイル検証）
+   - `.env.example` を更新（充実した正規表現例とコメントを記載）
 
 2. **redis/redis.go の修正**
    - `SetState()` で TTL を設定
@@ -411,9 +424,11 @@ if err != nil {
 
 ### ネガティブ
 
-- ⚠️ **設定の複雑化**: 環境変数が3つ増加（`STATE_TTL`, `ALLOWED_REDIRECT_PATHS`, `ALLOWED_REDIRECT_PATH_PATTERN`）
+- ⚠️ **設定の複雑化**: 環境変数が2つ増加（`STATE_TTL`, `ALLOWED_REDIRECT_PATH_PATTERN`）
+- ⚠️ **正規表現の学習コスト**: 正規表現に不慣れなユーザーには設定ミスのリスク（`.env.example` で緩和）
 - ⚠️ **後方互換性**: ホワイトリスト設定がない場合は全パス許可（段階的導入可能）
 - ⚠️ **運用コスト**: ホワイトリストのメンテナンスが必要（新しいページ追加時）
+- ⚠️ **起動時エラー**: 不正な正規表現の場合、起動に失敗する（設定ミスの早期検出になる）
 
 ### リスク評価
 
@@ -454,9 +469,28 @@ if err != nil {
 
 **推奨される本番環境設定:**
 ```bash
-# .env (本番環境例)
+# .env.example (推奨設定とコメント)
+
+# State token TTL (default: 5m)
 STATE_TTL=5m
-ALLOWED_REDIRECT_PATHS=/,/dashboard,/profile,/settings,/app
-# または
-ALLOWED_REDIRECT_PATH_PATTERN=^/(dashboard|profile|settings|app).*$
+
+# Redirect URL whitelist (regex pattern)
+# Examples:
+#   ^/$                                      # Root only
+#   ^/(dashboard|profile|settings)$          # Specific paths only
+#   ^/(dashboard|profile|settings)(/.*)?$    # Paths with optional subpaths
+#   ^/app/.*$                                # All paths under /app
+#   ^/(public|user/[^/]+/dashboard)$         # Complex conditions
+#   ^/.*$                                    # All paths (NOT RECOMMENDED)
+#
+# If not set, all paths are allowed (backward compatibility)
+# For production, it is HIGHLY RECOMMENDED to set a restrictive pattern
+ALLOWED_REDIRECT_PATH_PATTERN=^/(dashboard|profile|settings)(/.*)?$
+```
+
+**本番環境での設定例:**
+```bash
+# .env (本番環境)
+STATE_TTL=5m
+ALLOWED_REDIRECT_PATH_PATTERN=^/(dashboard|profile|settings|app)(/.*)?$
 ```
