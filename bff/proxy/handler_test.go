@@ -30,7 +30,7 @@ func TestProxyHandler_PathRewriting(t *testing.T) {
 	}
 }
 
-func TestProxyHandler_SetsSessionCookie(t *testing.T) {
+func TestProxyHandler_NoSessionRotation(t *testing.T) {
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -56,8 +56,15 @@ func TestProxyHandler_SetsSessionCookie(t *testing.T) {
 
 	handler.ServeHTTP(rr, req)
 
-	if rr.Header().Get("Set-Cookie") == "" {
-		t.Error("expected Set-Cookie header for session rotation, got none")
+	// Verify no Set-Cookie header (session rotation removed)
+	if rr.Header().Get("Set-Cookie") != "" {
+		t.Error("expected no Set-Cookie header (session rotation removed), got:", rr.Header().Get("Set-Cookie"))
+	}
+
+	// Verify original session remains in Redis
+	_, err := redis.GetSessionValue(sessionId)
+	if err != nil {
+		t.Error("expected session to remain in Redis after request, got error:", err)
 	}
 }
 
@@ -82,7 +89,7 @@ func TestProxyHandler_SetsRequestIdHeader(t *testing.T) {
 	}
 }
 
-func TestProxyHandler_ExistingSessionStored(t *testing.T) {
+func TestProxyHandler_ExistingSessionPersists(t *testing.T) {
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -97,6 +104,7 @@ func TestProxyHandler_ExistingSessionStored(t *testing.T) {
 	if err := redis.SetSession(sessionId, sessionData); err != nil {
 		t.Fatalf("failed to set up test session: %v", err)
 	}
+	defer redis.DeleteSession(sessionId)
 
 	handler := proxy.NewHandler(backend.Listener.Addr().String())
 
@@ -106,8 +114,18 @@ func TestProxyHandler_ExistingSessionStored(t *testing.T) {
 
 	handler.ServeHTTP(rr, req)
 
-	if rr.Header().Get("Set-Cookie") == "" {
-		t.Error("expected new Set-Cookie header after session rotation")
+	// Verify no Set-Cookie header (session not rotated)
+	if rr.Header().Get("Set-Cookie") != "" {
+		t.Error("expected no Set-Cookie header, got:", rr.Header().Get("Set-Cookie"))
+	}
+
+	// Verify session still exists with same data
+	retrievedData, err := redis.GetSessionValue(sessionId)
+	if err != nil {
+		t.Fatal("expected session to persist in Redis, got error:", err)
+	}
+	if retrievedData.UserID != sessionData.UserID {
+		t.Errorf("expected UserID %s, got %s", sessionData.UserID, retrievedData.UserID)
 	}
 }
 
@@ -196,5 +214,66 @@ func TestProxyHandler_NoAuthorizationHeaderWhenNoSession(t *testing.T) {
 
 	if receivedAuthHeader != "" {
 		t.Errorf("expected no Authorization header when session not found, got '%s'", receivedAuthHeader)
+	}
+}
+
+func TestProxyHandler_ConcurrentRequests(t *testing.T) {
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer backend.Close()
+
+	sessionId := "test-concurrent-" + t.Name()
+	sessionData := redis.SessionData{
+		UserID: "concurrent-user",
+		Email:  "concurrent@example.com",
+		Name:   "Concurrent Test",
+	}
+	if err := redis.SetSession(sessionId, sessionData); err != nil {
+		t.Fatalf("failed to set up test session: %v", err)
+	}
+	defer redis.DeleteSession(sessionId)
+
+	handler := proxy.NewHandler(backend.Listener.Addr().String())
+
+	// Run 10 concurrent requests
+	const concurrency = 10
+	errors := make(chan error, concurrency)
+	done := make(chan bool, concurrency)
+
+	for i := 0; i < concurrency; i++ {
+		go func(index int) {
+			req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
+			req.AddCookie(&http.Cookie{Name: "Session-Id", Value: sessionId})
+			rr := httptest.NewRecorder()
+
+			handler.ServeHTTP(rr, req)
+
+			if rr.Code != http.StatusOK {
+				errors <- nil // Use a marker for failed status check
+			}
+			done <- true
+		}(i)
+	}
+
+	// Wait for all requests to complete
+	for i := 0; i < concurrency; i++ {
+		<-done
+	}
+	close(errors)
+
+	// Check if all requests succeeded (no race condition)
+	errorCount := 0
+	for range errors {
+		errorCount++
+	}
+	if errorCount > 0 {
+		t.Errorf("expected all concurrent requests to succeed, got %d failures", errorCount)
+	}
+
+	// Verify session still exists after all concurrent requests
+	_, err := redis.GetSessionValue(sessionId)
+	if err != nil {
+		t.Error("expected session to remain in Redis after concurrent requests, got error:", err)
 	}
 }

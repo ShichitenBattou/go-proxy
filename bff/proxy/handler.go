@@ -1,8 +1,6 @@
 package proxy
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -19,14 +17,8 @@ import (
 
 var errNoSessionCookie = fmt.Errorf("No session cookie found, creating new session")
 
-func hashToken(token string) string {
-	hash := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(hash[:])
-}
-
 func NewHandler(forwardHost string) http.Handler {
 	cfg := setup.GetConfig()
-	var existedSessionId *string
 
 	rewrite := func(request *httputil.ProxyRequest) {
 		sessionID, err := request.In.Cookie(cfg.SessionCookieName)
@@ -37,14 +29,11 @@ func NewHandler(forwardHost string) http.Handler {
 		}
 
 		// Check if the session ID exists in Redis
-		hashedSessionId := hashToken(sessionID.Value)
 		sessionData, err := redis.GetSessionValue(sessionID.Value)
 		if err != nil {
 			slog.Info("Session not found in Redis", "sessionId", sessionID.Value)
-			existedSessionId = nil
 		} else {
 			slog.Info("Session found in Redis", "sessionId", sessionID.Value)
-			existedSessionId = &hashedSessionId
 
 			// Add Authorization header with AccessToken
 			if sessionData.AccessToken != "" {
@@ -72,37 +61,6 @@ func NewHandler(forwardHost string) http.Handler {
 		slog.Info("Received response", "statusCode", response.StatusCode, "url", response.Request.URL.String())
 		response.Header.Set("Access-Control-Allow-Origin", cfg.CORSAllowOrigin)
 		response.Header.Set("Access-Control-Allow-Methods", cfg.CORSAllowMethods)
-
-		// Session rotation: delete old session and create new one
-		var oldSessionData redis.SessionData
-		if existedSessionId == nil {
-			slog.Info("No existing session found, skipping session rotation")
-			return nil
-		} else {
-			// Retrieve old session data before deletion
-			sessionCookie, _ := response.Request.Cookie(cfg.SessionCookieName)
-			if sessionCookie != nil {
-				oldSessionData, _ = redis.GetSessionValue(sessionCookie.Value)
-			}
-			redis.DeleteSession(*existedSessionId)
-		}
-
-		// Create new session with rotated ID
-		newSessionID := uuid.New()
-		cookieValue := fmt.Sprintf("%s=%s", cfg.SessionCookieName, newSessionID.String())
-		if cfg.SessionCookieSecure {
-			cookieValue += "; Secure"
-		}
-		response.Header.Set("Set-Cookie", cookieValue)
-
-		// Store the session with existing SessionData (rotation)
-		err := redis.SetSession(newSessionID.String(), oldSessionData)
-		if err != nil {
-			slog.Error("Error setting session in Redis", "error", err)
-		} else {
-			slog.Info("Session rotated in Redis", "key", "session:"+newSessionID.String(), "userId", oldSessionData.UserID)
-		}
-
 		return nil
 	}
 
