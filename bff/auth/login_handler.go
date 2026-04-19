@@ -3,10 +3,10 @@ package auth
 import (
 	"bff/redis"
 	"bff/setup"
-	"bff/utils"
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,6 +20,20 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	redirectURLStr := r.URL.Query().Get("redirect_url")
 	if redirectURLStr == "" {
 		redirectURLStr = "/" // Default to root page
+	}
+
+	// Security: Check for protocol-relative URLs (e.g., //evil.com)
+	if strings.HasPrefix(redirectURLStr, "//") {
+		slog.Error("Protocol-relative URL detected", "url", redirectURLStr)
+		http.Error(w, "Invalid redirect URL", http.StatusBadRequest)
+		return
+	}
+
+	// Security: Check for newline characters (HTTP header injection)
+	if strings.ContainsAny(redirectURLStr, "\r\n") {
+		slog.Error("Newline character detected in redirect URL", "url", redirectURLStr)
+		http.Error(w, "Invalid redirect URL", http.StatusBadRequest)
+		return
 	}
 
 	// Parse and validate redirect URL
@@ -36,13 +50,11 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		redirectURL = &url.URL{Path: redirectURL.Path, RawQuery: redirectURL.RawQuery}
 	}
 
-	// Test Keycloak connectivity
-	client := utils.GetInternalHTTPClient()
-	res, err := client.Get(cfg.OIDCProviderURL)
-	if err != nil {
-		slog.Debug("Error connecting to Keycloak", "error", err)
-	} else {
-		slog.Debug("Successfully connected to Keycloak", "statusCode", res.StatusCode, "content", res.Body)
+	// Security: Validate redirect path against whitelist
+	if !isAllowedRedirectPath(redirectURL.Path, cfg) {
+		slog.Error("Redirect path not in whitelist", "path", redirectURL.Path)
+		http.Error(w, "Redirect URL not allowed", http.StatusForbidden)
+		return
 	}
 
 	oauth2Config, err := getOAuth2Config()

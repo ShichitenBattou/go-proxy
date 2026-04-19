@@ -120,11 +120,11 @@ func SetState(state uuid.UUID, stateData StateData) error {
 	}
 
 	key := cfg.StateKeyPrefix + state.String()
-	err = rdb.Set(ctx, key, content, 0).Err()
+	err = rdb.Set(ctx, key, content, cfg.StateTTL).Err()
 	if err != nil {
 		return err
 	}
-	slog.Info("State stored in Redis", "key", key, "value", stateData)
+	slog.Info("State stored in Redis", "key", key, "ttl", cfg.StateTTL)
 	return nil
 }
 

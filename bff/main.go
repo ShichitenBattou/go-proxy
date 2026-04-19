@@ -19,6 +19,13 @@ func main() {
 
 	cfg := setup.GetConfig()
 
+	// Validate configuration at startup
+	if err := cfg.Validate(); err != nil {
+		slog.Error("Configuration validation failed", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("Configuration validated successfully")
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 

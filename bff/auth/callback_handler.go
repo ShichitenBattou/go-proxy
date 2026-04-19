@@ -7,6 +7,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/google/uuid"
@@ -38,6 +39,14 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("Failed to get state from Redis", "state", stateUUID, "error", err)
 		http.Error(w, "Invalid state parameter", http.StatusForbidden)
+		return
+	}
+
+	// Validate state token expiration (defense in depth with Redis TTL)
+	if time.Since(stateData.CreatedAt) > cfg.StateTTL {
+		slog.Error("State token expired", "state", stateUUID, "createdAt", stateData.CreatedAt, "age", time.Since(stateData.CreatedAt), "ttl", cfg.StateTTL)
+		redis.DeleteState(stateUUID) // Clean up expired state
+		http.Error(w, "State expired", http.StatusForbidden)
 		return
 	}
 

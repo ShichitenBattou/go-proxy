@@ -1,7 +1,9 @@
 package setup
 
 import (
+	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,6 +31,7 @@ type Config struct {
 	SessionTTL        time.Duration
 	SessionKeyPrefix  string
 	StateKeyPrefix    string
+	StateTTL          time.Duration // State token TTL for CSRF protection
 
 	// Session/Cookie settings
 	SessionCookieName     string
@@ -42,6 +45,9 @@ type Config struct {
 
 	// TLS/Certificate settings
 	RootCAFile string
+
+	// Security settings
+	AllowedRedirectPathPattern string // Regex pattern for allowed redirect URLs
 }
 
 var (
@@ -92,6 +98,7 @@ func GetConfig() *Config {
 			SessionTTL:       getEnvDuration("SESSION_TTL", 30*24*time.Hour), // 30 days
 			SessionKeyPrefix: getEnv("SESSION_KEY_PREFIX", "session:"),
 			StateKeyPrefix:   getEnv("STATE_KEY_PREFIX", "state:"),
+			StateTTL:         getEnvDuration("STATE_TTL", 5*time.Minute), // 5 minutes for OAuth2 state
 
 			// Session/Cookie settings
 			SessionCookieName:     getEnv("SESSION_COOKIE_NAME", "Session-Id"),
@@ -105,9 +112,24 @@ func GetConfig() *Config {
 
 			// TLS/Certificate settings
 			RootCAFile: getEnv("ROOT_CA_FILE", "./rootCA.crt"),
+
+			// Security settings
+			AllowedRedirectPathPattern: getEnv("ALLOWED_REDIRECT_PATH_PATTERN", ""),
 		}
 	})
 	return config
+}
+
+// Validate validates the configuration and compiles regex patterns to detect errors early
+func (cfg *Config) Validate() error {
+	// Compile redirect path pattern to detect errors at startup
+	if cfg.AllowedRedirectPathPattern != "" {
+		_, err := regexp.Compile(cfg.AllowedRedirectPathPattern)
+		if err != nil {
+			return fmt.Errorf("invalid ALLOWED_REDIRECT_PATH_PATTERN: %w", err)
+		}
+	}
+	return nil
 }
 
 func getEnv(key string, defaultValue string) string {

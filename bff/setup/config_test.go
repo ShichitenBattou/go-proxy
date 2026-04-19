@@ -320,3 +320,70 @@ OAUTH2_CLIENT_SECRET=should-be-ignored-secret`
 		t.Errorf("Expected RedisAddr to be default 'redis:6379', got '%s'", cfg.RedisAddr)
 	}
 }
+
+func TestConfig_Validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfg     *Config
+		wantErr bool
+	}{
+		{
+			name: "Valid regex pattern",
+			cfg: &Config{
+				AllowedRedirectPathPattern: "^/(dashboard|profile|settings)$",
+			},
+			wantErr: false,
+		},
+		{
+			name: "Valid regex pattern with optional subpaths",
+			cfg: &Config{
+				AllowedRedirectPathPattern: "^/(dashboard|profile|settings)(/.*)?$",
+			},
+			wantErr: false,
+		},
+		{
+			name: "Valid complex regex pattern",
+			cfg: &Config{
+				AllowedRedirectPathPattern: `^/(public|user/[^/]+/dashboard)$`,
+			},
+			wantErr: false,
+		},
+		{
+			name: "Empty pattern (allowed for backward compatibility)",
+			cfg: &Config{
+				AllowedRedirectPathPattern: "",
+			},
+			wantErr: false,
+		},
+		{
+			name: "Invalid regex pattern - unclosed bracket",
+			cfg: &Config{
+				AllowedRedirectPathPattern: "^/dashboard[",
+			},
+			wantErr: true,
+		},
+		{
+			name: "Invalid regex pattern - unclosed parenthesis",
+			cfg: &Config{
+				AllowedRedirectPathPattern: "^/(dashboard|profile",
+			},
+			wantErr: true,
+		},
+		{
+			name: "Invalid regex pattern - invalid escape sequence",
+			cfg: &Config{
+				AllowedRedirectPathPattern: `^\k`,
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.cfg.Validate()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Config.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
