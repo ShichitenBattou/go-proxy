@@ -18,6 +18,9 @@
       {
         "file": ".vscode/commit_message_instruction.md"
       }
-    ]
+    ],
+    "[nginx]": {
+      "editor.formatOnSave": false
+    }
   }
 }
