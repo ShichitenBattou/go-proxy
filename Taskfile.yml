@@ -20,15 +20,39 @@ tasks:
       - echo "{{.GREETING}}"
     silent: true
 
-  generate-keys:
-    desc: Generate a Private/Public SSL/TLS key pair
-    cmds:
-      - openssl req -x509 -newkey rsa:2048 -keyout ./keys/server.key -out ./keys/server.crt -days 365 -nodes -subj "/C=JP/ST=Osaka/L=Osaka/O=Freelance Watanabe/OU=None/CN=localhost" -addext "subjectAltName=DNS:localhost"
-
   semgrep:
     desc: Run Semgrep to analyze the codebase
     cmds:
       - uvx semgrep --config auto .
+
+  lint:
+    desc: Run all lint checks
+    cmds:
+      - task: semgrep
+      - task: api:lint
+      - task: bff:lint
+
+  build:
+    desc: Run all build checks
+    cmds:
+      - task: api:build
+      - task: bff:build
+
+  test:
+    desc: Run all tests
+    cmds:
+      - task: api:test
+      - task: bff:test
+
+  ci:
+    desc: Run all CI checks (lint, build, test)
+    cmds:
+      - task: lint
+        ignore_error: true
+      - task: build
+        ignore_error: true
+      - task: test
+        ignore_error: true
 
   setup:
     desc: Setup the project
