@@ -1,0 +1,23 @@
+{
+  "skill_name": "openapi-reader",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "api/のopenapi.jsonを読んでエンドポイント一覧を教えて",
+      "expected_output": "APIのエンドポイント一覧が表示され、HTTPメソッド・パス・概要が確認できる",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "postsタグのエンドポイントのリクエスト/レスポンス型を確認したい",
+      "expected_output": "posts タグに属するエンドポイントの詳細（パラメータ、リクエストボディ、レスポンススキーマ）が表示される",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "openapi.jsonからUserResponseスキーマのフィールドを確認して",
+      "expected_output": "UserResponse スキーマのフィールド定義（id, keycloak_sub, role, is_active）が表示される",
+      "files": []
+    }
+  ]
+}
