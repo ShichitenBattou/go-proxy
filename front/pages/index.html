@@ -14,13 +14,23 @@
             <h1>Go Proxy</h1>
         </div>
         <div class="right-header">
-            <div class="button" id="sign_up"> <a
-                    href="https://localhost/idp/realms/go-proxy/protocol/openid-connect/registrations?client_id=bff&response_type=code&scope=openid&redirect_uri=https://localhost/auth/callback">
-                    Sign
-                    Up</a>
+            <!-- ログアウト状態で表示 -->
+            <div class="auth-logged-out hidden">
+                <div class="button" id="sign_up"> <a
+                        href="https://auth.local/idp/realms/go-proxy/protocol/openid-connect/registrations?client_id=bff&response_type=code&scope=openid&redirect_uri=https://localhost/auth/callback">
+                        Sign
+                        Up</a>
+                </div>
+                <div class="button" id="login">
+                    <a href="https://auth.local/api/auth/login">Login</a>
+                </div>
             </div>
-            <div class="button" id="login">
-                <a href="https://localhost/api/auth/login">Login</a>
+            <!-- ログイン状態で表示 -->
+            <div class="auth-logged-in hidden">
+                <div class="user-info">
+                    <span id="user-name">ユーザー名</span>
+                </div>
+                <button class="button" id="logout">Logout</button>
             </div>
         </div>
     </div>
