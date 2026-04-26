@@ -2,86 +2,105 @@
 
 このファイルは、リポジトリで作業する Claude Code (claude.ai/code) へのガイダンスを提供します。
 
+## 開発ルール（厳守）
+
+- **実装時には ADR (Architecture Decision Record) を作成して認識合わせをすること**
+  - いかなる場合でも事前に ADR を作成する
+  - ADR は `docs/adr/` ディレクトリに配置する
+  - ADR は即時コミットし、ディスカッション後に修正、再度コミットする
+
+ADR のフォーマットや詳細は既存の ADR ファイルを参考にすること。
+
 ## アーキテクチャ概要
 
 Keycloak を使った認証付き BFF (Backend for Frontend) プロキシパターンのマルチサービス構成です。
 
-- **bff/** — Go 製リバースプロキシ (TLS)。リクエストを受け取り、Redis でセッション管理し、`/api` プレフィックスを除去して API サービスへ転送する。`/auth/login` で Keycloak OIDC ログインへのリダイレクトも担う。
-- **api/** — Python/FastAPI バックエンド。BFF の転送先。クリーンアーキテクチャ + CQRS を採用。詳細は `api/CLAUDE.md` 参照。
-- **front/** — Next.js 16 / React 19 / Tailwind CSS 4 フロントエンド (開発時ポート 3000)。
+- **front/** — 静的 HTML/JS + NGINX リバースプロキシ (HTTPS/TLS)。静的コンテンツの配信と、API リクエストを bff へルーティング。詳細は `front/CLAUDE.md` 参照。
+- **bff/** — Go 製認証プロキシ (oauth2-proxy ライクな動作)。NGINX からのリクエストを受け取り、Redis でセッション管理し、`/api` プレフィックスを除去して API サービスへ転送。未認証ユーザーを Keycloak OIDC ログインへリダイレクト。詳細は `bff/CLAUDE.md` 参照。
+- **api/** — Python/FastAPI バックエンド。クリーンアーキテクチャ + CQRS を採用。詳細は `api/CLAUDE.md` 参照。
 - **redis** — セッションストア。セッションは SHA-256 ハッシュ済みキー (`session:<hash>`) で保存される。
 - **keycloak** — OIDC アイデンティティプロバイダー、PostgreSQL バックエンド。レルム設定は `keycloak/data/import/realm-export.json` からインポート (レルム: `myrealm`、クライアント: `bff`)。
 
 ### リクエストフロー
 
 ```
-ブラウザ → BFF (HTTPS) → API (HTTP)
-               ↕
-         Redis (セッションストア)
+ブラウザ → NGINX (HTTPS) → bff (Go) → API (HTTP)
+               ↓              ↕
+           静的HTML       Redis (セッションストア)
 ```
 
-BFF の動作:
+**NGINX の役割**:
+- `/` — 静的 HTML/JS/CSS の配信
+- `/idp/` — Keycloak へのプロキシ
+- `/api/` — bff へのプロキシ
+
+**bff の動作**:
 1. リクエストごとに `Session-Id` Cookie を Redis で検証
 2. `/api` プレフィックスを除去して API へ転送
 3. レスポンスのたびにセッション Cookie をローテーション
-4. 未認証ユーザーを Keycloak へリダイレクト
+4. 未認証ユーザーを Keycloak OIDC ログインへリダイレクト
 
-### TLS 証明書
+## 開発環境のセットアップ
 
-BFF は bff ディレクトリ内の `./_keys/server.crt` と `./_keys/server.key` を必要とする。以下で生成:
+### 必要なツールのインストール
+
+このプロジェクトは [aqua](https://aquaproj.github.io/) でツールバージョンを一元管理しています。
+以下のツールが `aqua.yaml` で定義されています:
+
+- **uv** (0.10.7) — Python パッケージ管理
+- **task** (v3.48.0) — タスクランナー
+- **go** (go1.26.1) — Go 言語
+- **lefthook** (v2.1.4) — Git hooks
+- **github-mcp-server** (v0.31.0) — MCP サーバー
 
 ```bash
-task generate-keys
+# 1. aqua のインストール (初回のみ)
+# https://aquaproj.github.io/docs/tutorial/quick-start#install-aqua
+
+# 2. ツールのインストール
+aqua install
+
+# または、プロジェクト全体のセットアップ (aqua install + 各サービスの依存関係)
+task setup
 ```
+
+### Taskfile について
+
+よく使うコマンドは各ディレクトリの `Taskfile.yml` に定義されています。
+
+- **実行方法**: `task <タスク名>` (例: `task setup`, `task api:test`)
+- **タスク一覧**: `task --list` または `task -l`
+- **モノレポ対応**: ルートから `task <サービス名>:<タスク名>` で各サービスのタスクを実行可能
 
 ## 開発コマンド
 
-### フルスタック (Docker Compose)
+### フルスタック起動
 
 ```bash
 cp .env.example .env
-# .env の HOST_WORKSPACE をホストマシン上のリポジトリの絶対パスに変更する
+# .env の HOST_WORKSPACE をホストマシン上のリポジトリの絶対パスに変更
 
 docker compose up --build
 ```
 
-### BFF (Go)
+### 各サービスの開発
+
+各サービスの詳細なコマンドとアーキテクチャは、それぞれの CLAUDE.md を参照してください:
+
+- **フロントエンド (Next.js + NGINX)**: `front/CLAUDE.md`
+- **BFF (Go)**: `bff/CLAUDE.md`
+- **API (Python/FastAPI)**: `api/CLAUDE.md`
+
+### 共通タスク (ルートディレクトリ)
 
 ```bash
-cd bff
-go run main.go          # ローカル起動 (redis:6379 が必要)
-go build ./...
-task test               # 全パッケージテスト (Redis を Docker Compose で自動起動・終了)
-go test ./auth/...      # Redis 不要なパッケージのみ単独実行可
+task setup          # プロジェクト全体のセットアップ (aqua + 全サービス)
+task semgrep        # Semgrep による静的解析
+
+# サービス別タスクの実行例
+task bff:test       # bff のテストを実行
+task api:test       # api のテストを実行
 ```
-
-### API (Python/FastAPI)
-
-```bash
-cd api
-uv sync             # 依存関係のインストール
-task run            # ローカル起動
-uv run pytest       # テスト実行
-```
-
-### フロントエンド (Next.js)
-
-```bash
-cd front
-npm install
-npm run dev             # ホットリロード付き開発サーバー
-npm run build
-npm run lint
-```
-
-### ツール類
-
-```bash
-task semgrep            # Semgrep による静的解析
-task generate-keys      # 自己署名 TLS 証明書・鍵ペアを ./keys/ に生成
-```
-
-ツールバージョンは [aqua](https://aquaproj.github.io/) (`aqua.yaml`) で管理。devcontainer セットアップ後、`aqua i` で全ツール (uv, task, github-mcp-server) がインストールされる。
 
 ## BFF アーキテクチャ方針
 
