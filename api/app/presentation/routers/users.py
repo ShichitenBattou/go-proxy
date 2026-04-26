@@ -10,6 +10,7 @@ from app.application.queries.get_user import GetUserInteractor
 from app.domain.entities.user import UserRole
 from app.domain.exceptions import UserNotFoundError
 from app.presentation.dependencies import (
+    CurrentUser,
     get_create_user_interactor,
     get_deactivate_user_interactor,
     get_get_user_interactor,
@@ -32,6 +33,7 @@ class UserResponse(BaseModel):
 @router.post("", status_code=201, response_model=UserResponse)
 async def create_user(
     body: CreateUserRequest,
+    current_user: CurrentUser,
     interactor: Annotated[CreateUserInteractor, Depends(get_create_user_interactor)],
 ) -> UserResponse:
     user = await interactor.execute(CreateUserCommand(keycloak_sub=body.keycloak_sub))
@@ -46,6 +48,7 @@ async def create_user(
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
     user_id: UUID,
+    current_user: CurrentUser,
     interactor: Annotated[GetUserInteractor, Depends(get_get_user_interactor)],
 ) -> UserResponse:
     user = await interactor.execute(user_id)
@@ -62,6 +65,7 @@ async def get_user(
 @router.delete("/{user_id}", status_code=204)
 async def deactivate_user(
     user_id: UUID,
+    current_user: CurrentUser,
     interactor: Annotated[DeactivateUserInteractor, Depends(get_deactivate_user_interactor)],
 ) -> None:
     try:

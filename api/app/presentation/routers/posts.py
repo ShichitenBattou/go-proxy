@@ -69,6 +69,7 @@ async def create_post(
 
 @router.get("", response_model=list[PostResponse])
 async def list_posts(
+    current_user: CurrentUser,
     interactor: Annotated[ListPostsInteractor, Depends(get_list_posts_interactor)],
     author_id: UUID | None = None,
     limit: int = 20,
@@ -94,6 +95,7 @@ async def list_posts(
 @router.get("/{post_id}", response_model=PostResponse)
 async def get_post(
     post_id: UUID,
+    current_user: CurrentUser,
     interactor: Annotated[GetPostInteractor, Depends(get_get_post_interactor)],
 ) -> PostResponse:
     try:

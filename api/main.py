@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.infrastructure.jwks_client import JwksClient
 from app.presentation import auth
-from app.presentation.routers import posts, users
+from app.presentation.routers import posts, public, users
 from app.setup.logging import configure_logging
 
 configure_logging()
@@ -74,6 +74,7 @@ add_exception_handler(app)
 
 app.include_router(users.router)
 app.include_router(posts.router)
+app.include_router(public.router)
 
 
 @app.get("/health")
