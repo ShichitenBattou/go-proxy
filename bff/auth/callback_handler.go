@@ -125,10 +125,13 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Set session cookie with security attributes
 	sameSite := http.SameSiteStrictMode
-	if cfg.SessionCookieSameSite == "Lax" {
+	switch cfg.SessionCookieSameSite {
+	case "Lax":
 		sameSite = http.SameSiteLaxMode
-	} else if cfg.SessionCookieSameSite == "None" {
+	case "None":
 		sameSite = http.SameSiteNoneMode
+	default:
+		sameSite = http.SameSiteStrictMode
 	}
 
 	http.SetCookie(w, &http.Cookie{
