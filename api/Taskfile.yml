@@ -32,6 +32,11 @@ tasks:
       - cmd: uv run pytest
       - cmd: echo "done"
 
+  export-openapi:
+    desc: Export OpenAPI schema (use CLI_ARGS to pass options, e.g. -- -o openapi.json)
+    cmds:
+      - uv run scripts/export_openapi.py {{.CLI_ARGS}}
+
   ruff:
     desc: Run ruff linter
     cmds:

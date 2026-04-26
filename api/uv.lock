@@ -66,6 +66,7 @@ dependencies = [
     { name = "python-jose" },
     { name = "python-json-logger" },
     { name = "sqlalchemy", extra = ["asyncio"] },
+    { name = "typer" },
 ]
 
 [package.dev-dependencies]
@@ -89,6 +90,7 @@ requires-dist = [
     { name = "python-jose", specifier = ">=3.5.0" },
     { name = "python-json-logger", specifier = ">=4.0.0" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },
+    { name = "typer", specifier = ">=0.24.1" },
 ]
 
 [package.metadata.requires-dev]
