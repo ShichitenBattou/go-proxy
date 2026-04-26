@@ -49,6 +49,9 @@ func main() {
 			r.Post("/logout", auth.LogoutHandler)
 		})
 
+		// Public proxy handler (no session validation)
+		r.Handle("/public/*", proxy.NewPublicHandler(cfg.ProxyTarget))
+
 		// Proxy handler (catch-all for unmatched routes)
 		r.Handle("/*", proxy.NewHandler(cfg.ProxyTarget))
 
