@@ -26,6 +26,11 @@ class TestCreateUser:
         assert second.status_code == 201
         assert first.json()["id"] == second.json()["id"]
 
+    async def test_create_user_requires_auth(self, unauthenticated_client: AsyncClient) -> None:
+        response = await unauthenticated_client.post("/users", json={"keycloak_sub": "unauth-sub"})
+
+        assert response.status_code == 401
+
 
 class TestGetUser:
     async def test_get_user_returns_200(
@@ -46,3 +51,36 @@ class TestGetUser:
         response = await client.get(f"/users/{missing_id}")
 
         assert response.status_code == 404
+
+    async def test_get_user_requires_auth(self, unauthenticated_client: AsyncClient) -> None:
+        some_id = str(uuid4())
+
+        response = await unauthenticated_client.get(f"/users/{some_id}")
+
+        assert response.status_code == 401
+
+
+class TestDeactivateUser:
+    async def test_deactivate_user_returns_204(self, client: AsyncClient) -> None:
+        # Create a user first, then deactivate it.
+        create_resp = await client.post("/users", json={"keycloak_sub": "deactivate-sub"})
+        assert create_resp.status_code == 201
+        user_id = create_resp.json()["id"]
+
+        response = await client.delete(f"/users/{user_id}")
+
+        assert response.status_code == 204
+
+    async def test_deactivate_user_not_found_returns_404(self, client: AsyncClient) -> None:
+        missing_id = str(uuid4())
+
+        response = await client.delete(f"/users/{missing_id}")
+
+        assert response.status_code == 404
+
+    async def test_deactivate_user_requires_auth(self, unauthenticated_client: AsyncClient) -> None:
+        some_id = str(uuid4())
+
+        response = await unauthenticated_client.delete(f"/users/{some_id}")
+
+        assert response.status_code == 401

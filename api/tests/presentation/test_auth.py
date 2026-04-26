@@ -46,9 +46,10 @@ class TestGetCurrentSub:
         """
         credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="fake.token.here")
 
-        with patch("app.presentation.auth.jwt.get_unverified_header") as mock_header, patch(
-            "app.presentation.auth.jose_jwt.get_unverified_claims"
-        ) as mock_claims:
+        with (
+            patch("app.presentation.auth.jwt.get_unverified_header") as mock_header,
+            patch("app.presentation.auth.jose_jwt.get_unverified_claims") as mock_claims,
+        ):
             mock_header.return_value = {}  # kid がない
             mock_claims.return_value = {"iss": "test", "aud": "test"}
 
@@ -63,13 +64,13 @@ class TestGetCurrentSub:
         """期限切れトークンの場合、401 を返す"""
         credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="fake.token.here")
 
-        with patch("app.presentation.auth.jwt.get_unverified_header") as mock_header, patch(
-            "app.presentation.auth.jwt.decode"
-        ) as mock_decode, patch("app.presentation.auth._jwks_client") as mock_client, patch(
-            "app.presentation.auth.settings"
-        ) as mock_settings, patch(
-            "app.presentation.auth.jose_jwt.get_unverified_claims"
-        ) as mock_claims:
+        with (
+            patch("app.presentation.auth.jwt.get_unverified_header") as mock_header,
+            patch("app.presentation.auth.jwt.decode") as mock_decode,
+            patch("app.presentation.auth._jwks_client") as mock_client,
+            patch("app.presentation.auth.settings") as mock_settings,
+            patch("app.presentation.auth.jose_jwt.get_unverified_claims") as mock_claims,
+        ):
             mock_settings.stage = "prod"
             mock_header.return_value = {"kid": "test-kid"}
             mock_claims.return_value = {"iss": "test", "aud": "test"}
@@ -88,13 +89,13 @@ class TestGetCurrentSub:
         """無効な発行者の場合、401 を返す"""
         credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="fake.token.here")
 
-        with patch("app.presentation.auth.jwt.get_unverified_header") as mock_header, patch(
-            "app.presentation.auth.jwt.decode"
-        ) as mock_decode, patch("app.presentation.auth._jwks_client") as mock_client, patch(
-            "app.presentation.auth.settings"
-        ) as mock_settings, patch(
-            "app.presentation.auth.jose_jwt.get_unverified_claims"
-        ) as mock_claims:
+        with (
+            patch("app.presentation.auth.jwt.get_unverified_header") as mock_header,
+            patch("app.presentation.auth.jwt.decode") as mock_decode,
+            patch("app.presentation.auth._jwks_client") as mock_client,
+            patch("app.presentation.auth.settings") as mock_settings,
+            patch("app.presentation.auth.jose_jwt.get_unverified_claims") as mock_claims,
+        ):
             mock_settings.stage = "prod"
             mock_header.return_value = {"kid": "test-kid"}
             mock_claims.return_value = {"iss": "test", "aud": "test"}
@@ -113,13 +114,13 @@ class TestGetCurrentSub:
         """無効な対象者の場合、401 を返す"""
         credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="fake.token.here")
 
-        with patch("app.presentation.auth.jwt.get_unverified_header") as mock_header, patch(
-            "app.presentation.auth.jwt.decode"
-        ) as mock_decode, patch("app.presentation.auth._jwks_client") as mock_client, patch(
-            "app.presentation.auth.settings"
-        ) as mock_settings, patch(
-            "app.presentation.auth.jose_jwt.get_unverified_claims"
-        ) as mock_claims:
+        with (
+            patch("app.presentation.auth.jwt.get_unverified_header") as mock_header,
+            patch("app.presentation.auth.jwt.decode") as mock_decode,
+            patch("app.presentation.auth._jwks_client") as mock_client,
+            patch("app.presentation.auth.settings") as mock_settings,
+            patch("app.presentation.auth.jose_jwt.get_unverified_claims") as mock_claims,
+        ):
             mock_settings.stage = "prod"
             mock_header.return_value = {"kid": "test-kid"}
             mock_claims.return_value = {"iss": "test", "aud": "test"}
@@ -142,13 +143,13 @@ class TestGetCurrentSub:
         """
         credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="fake.token.here")
 
-        with patch("app.presentation.auth.jwt.get_unverified_header") as mock_header, patch(
-            "app.presentation.auth.jwt.decode"
-        ) as mock_decode, patch("app.presentation.auth._jwks_client") as mock_client, patch(
-            "app.presentation.auth.settings"
-        ) as mock_settings, patch(
-            "app.presentation.auth.jose_jwt.get_unverified_claims"
-        ) as mock_claims:
+        with (
+            patch("app.presentation.auth.jwt.get_unverified_header") as mock_header,
+            patch("app.presentation.auth.jwt.decode") as mock_decode,
+            patch("app.presentation.auth._jwks_client") as mock_client,
+            patch("app.presentation.auth.settings") as mock_settings,
+            patch("app.presentation.auth.jose_jwt.get_unverified_claims") as mock_claims,
+        ):
             mock_settings.stage = "prod"
             mock_header.return_value = {"kid": "test-kid"}
             mock_claims.return_value = {"iss": "test", "aud": "test"}
@@ -168,13 +169,13 @@ class TestGetCurrentSub:
         """無効なトークンの場合、401 を返す"""
         credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="fake.token.here")
 
-        with patch("app.presentation.auth.jwt.get_unverified_header") as mock_header, patch(
-            "app.presentation.auth.jwt.decode"
-        ) as mock_decode, patch("app.presentation.auth._jwks_client") as mock_client, patch(
-            "app.presentation.auth.settings"
-        ) as mock_settings, patch(
-            "app.presentation.auth.jose_jwt.get_unverified_claims"
-        ) as mock_claims:
+        with (
+            patch("app.presentation.auth.jwt.get_unverified_header") as mock_header,
+            patch("app.presentation.auth.jwt.decode") as mock_decode,
+            patch("app.presentation.auth._jwks_client") as mock_client,
+            patch("app.presentation.auth.settings") as mock_settings,
+            patch("app.presentation.auth.jose_jwt.get_unverified_claims") as mock_claims,
+        ):
             mock_settings.stage = "prod"
             mock_header.return_value = {"kid": "test-kid"}
             mock_claims.return_value = {"iss": "test", "aud": "test"}
@@ -210,13 +211,13 @@ class TestGetCurrentSub:
         """正常なトークンの場合、sub クレームを返す"""
         credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="fake.token.here")
 
-        with patch("app.presentation.auth.jwt.get_unverified_header") as mock_header, patch(
-            "app.presentation.auth.jwt.decode"
-        ) as mock_decode, patch("app.presentation.auth._jwks_client") as mock_client, patch(
-            "app.presentation.auth.settings"
-        ) as mock_settings, patch(
-            "app.presentation.auth.jose_jwt.get_unverified_claims"
-        ) as mock_claims:
+        with (
+            patch("app.presentation.auth.jwt.get_unverified_header") as mock_header,
+            patch("app.presentation.auth.jwt.decode") as mock_decode,
+            patch("app.presentation.auth._jwks_client") as mock_client,
+            patch("app.presentation.auth.settings") as mock_settings,
+            patch("app.presentation.auth.jose_jwt.get_unverified_claims") as mock_claims,
+        ):
             mock_settings.stage = "prod"
             mock_header.return_value = {"kid": "test-kid"}
             mock_claims.return_value = {"iss": "test", "aud": "test"}

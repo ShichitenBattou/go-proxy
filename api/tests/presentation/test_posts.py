@@ -136,3 +136,52 @@ class TestListPosts:
         assert len(body) == 1
         assert body[0]["title"] == "Mine"
         assert body[0]["author_id"] == str(test_user.id)
+
+    async def test_list_posts_requires_auth(self, unauthenticated_client: AsyncClient) -> None:
+        response = await unauthenticated_client.get("/posts")
+
+        assert response.status_code == 401
+
+
+class TestGetPost:
+    async def test_get_post_returns_200(
+        self,
+        client: AsyncClient,
+        post_repo: InMemoryPostRepository,
+        test_user: User,
+    ) -> None:
+        now = datetime.now(UTC)
+        post = Post(
+            id=uuid4(),
+            author_id=test_user.id,
+            title="Detail Post",
+            body="Detail body",
+            tags=["tag1"],
+            created_at=now,
+        )
+        await post_repo.add(post)
+
+        response = await client.get(f"/posts/{post.id}")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["id"] == str(post.id)
+        assert body["author_id"] == str(test_user.id)
+        assert body["title"] == "Detail Post"
+        assert body["body"] == "Detail body"
+        assert body["tags"] == ["tag1"]
+        assert body["version"] == 1
+
+    async def test_get_post_not_found_returns_404(self, client: AsyncClient) -> None:
+        missing_id = str(uuid4())
+
+        response = await client.get(f"/posts/{missing_id}")
+
+        assert response.status_code == 404
+
+    async def test_get_post_requires_auth(self, unauthenticated_client: AsyncClient) -> None:
+        some_id = str(uuid4())
+
+        response = await unauthenticated_client.get(f"/posts/{some_id}")
+
+        assert response.status_code == 401

@@ -2,25 +2,30 @@ from collections.abc import AsyncGenerator
 from uuid import UUID, uuid4
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from httpx import ASGITransport, AsyncClient
 
 from app.application.commands.create_post import CreatePostInteractor
 from app.application.commands.create_user import CreateUserInteractor
+from app.application.commands.deactivate_user import DeactivateUserInteractor
+from app.application.queries.get_post import GetPostInteractor
 from app.application.queries.get_user import GetUserInteractor
 from app.application.queries.list_posts import ListPostsInteractor
 from app.domain.entities.post import Post
 from app.domain.entities.user import User, UserRole
+from app.presentation.auth import get_current_sub
 from app.presentation.dependencies import (
     get_create_post_interactor,
     get_create_user_interactor,
     get_current_user,
+    get_deactivate_user_interactor,
+    get_get_post_interactor,
     get_get_user_interactor,
     get_list_posts_interactor,
     get_post_repo,
     get_user_repo,
 )
-from app.presentation.routers import posts, users
+from app.presentation.routers import posts, public, users
 
 # ---------------------------------------------------------------------------
 # In-memory repository implementations
@@ -115,7 +120,16 @@ def _make_test_app() -> FastAPI:
     app = FastAPI()
     app.include_router(users.router)
     app.include_router(posts.router)
+    app.include_router(public.router)
     return app
+
+
+def _raise_401() -> None:
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Missing Authorization header",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -139,9 +153,47 @@ async def client(
     # goes through get_user_repo / get_post_repo which expect a DB session.
     app.dependency_overrides[get_create_user_interactor] = lambda: CreateUserInteractor(user_repo)
     app.dependency_overrides[get_get_user_interactor] = lambda: GetUserInteractor(user_repo)
+    app.dependency_overrides[get_deactivate_user_interactor] = lambda: DeactivateUserInteractor(
+        user_repo
+    )
     app.dependency_overrides[get_create_post_interactor] = lambda: CreatePostInteractor(
         post_repo, user_repo
     )
+    app.dependency_overrides[get_get_post_interactor] = lambda: GetPostInteractor(post_repo)
+    app.dependency_overrides[get_list_posts_interactor] = lambda: ListPostsInteractor(post_repo)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
+
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def unauthenticated_client(
+    user_repo: InMemoryUserRepository,
+    post_repo: InMemoryPostRepository,
+) -> AsyncGenerator[AsyncClient, None]:
+    """AsyncClient without get_current_user override.
+
+    get_current_sub is overridden to raise 401 immediately, simulating a
+    request that arrives without a Bearer token. Interactors are still wired
+    so that public endpoints (which skip auth) work correctly.
+    """
+    app = _make_test_app()
+
+    app.dependency_overrides[get_user_repo] = lambda: user_repo
+    app.dependency_overrides[get_post_repo] = lambda: post_repo
+    # Simulate missing Authorization header at the JWT layer.
+    app.dependency_overrides[get_current_sub] = _raise_401
+    app.dependency_overrides[get_create_user_interactor] = lambda: CreateUserInteractor(user_repo)
+    app.dependency_overrides[get_get_user_interactor] = lambda: GetUserInteractor(user_repo)
+    app.dependency_overrides[get_deactivate_user_interactor] = lambda: DeactivateUserInteractor(
+        user_repo
+    )
+    app.dependency_overrides[get_create_post_interactor] = lambda: CreatePostInteractor(
+        post_repo, user_repo
+    )
+    app.dependency_overrides[get_get_post_interactor] = lambda: GetPostInteractor(post_repo)
     app.dependency_overrides[get_list_posts_interactor] = lambda: ListPostsInteractor(post_repo)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
