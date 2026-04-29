@@ -23,22 +23,15 @@ Keycloak が自己署名証明書や内部 CA 証明書を使用する環境（�
 以下の方針で `ssl_context` を `PyJWKClient` に渡す。
 
 1. **設定値として `jwks_ssl_ca_bundle` を追加** — CA バンドルファイルのパスを環境変数 `JWKS_SSL_CA_BUNDLE` で受け取る（省略時は `None`）
-2. **設定値として `jwks_ssl_verify` を追加** — SSL 検証を無効にするフラグ（`bool`、デフォルト `True`）
-3. **`ssl.SSLContext` を生成して渡す** — `jwks_ssl_verify=False` のとき検証を無効化、`jwks_ssl_ca_bundle` が指定されたときはそのファイルを CA として読み込む
-4. **`ssl_context=None` は変更なし** — 両設定がデフォルト値のとき（`verify=True` かつ CA バンドル未指定）は `ssl_context=None` のままとし、Python デフォルトの検証を使用する
+2. **`ssl.SSLContext` を生成して渡す** — `jwks_ssl_ca_bundle` が指定されたときはそのファイルを CA として読み込む。未指定時は `ssl_context=None` のままとし、Python デフォルトの検証を使用する
+3. **SSL 検証の無効化は提供しない** — 本プロジェクトは堅めの POC であり、`verify=False` 相当の設定は MITM 攻撃に脆弱になるため採用しない
 
 ```python
 import ssl
 
-def _build_ssl_context(verify: bool, ca_bundle: str | None) -> ssl.SSLContext | None:
-    if not verify:
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-        return ctx
+def _build_ssl_context(ca_bundle: str | None) -> ssl.SSLContext | None:
     if ca_bundle:
-        ctx = ssl.create_default_context(cafile=ca_bundle)
-        return ctx
+        return ssl.create_default_context(cafile=ca_bundle)
     return None
 ```
 
@@ -57,7 +50,6 @@ def __init__(
 `Settings` への追加:
 
 ```python
-jwks_ssl_verify: bool = True
 jwks_ssl_ca_bundle: str | None = None
 ```
 
@@ -76,16 +68,16 @@ self._client = PyJWKClient(
 ## Consequences
 
 **ポジティブ:**
-- 自己署名証明書環境での JWKS 取得が可能になる
-- 本番環境で特定の CA バンドルを明示指定できる
+- 自己署名証明書や内部 CA を使用する環境での JWKS 取得が可能になる
+- SSL 検証の無効化を提供しないことで、セキュリティポリシーを維持できる
 - `ssl_context=None`（デフォルト）はゼロ変更で既存挙動を維持する
 
 **ネガティブ:**
-- `jwks_ssl_verify=False` は MITM 攻撃に脆弱になるため、開発環境に限定すること
+- SSL 検証を無効化したい場合（例: 開発環境での手軽な動作確認）は、CA バンドルを用意するか証明書を正しく設定する必要がある
 
 ## Implementation Notes
 
-- `api/app/config.py`: `jwks_ssl_verify: bool = True`, `jwks_ssl_ca_bundle: str | None = None` を追加
+- `api/app/config.py`: `jwks_ssl_ca_bundle: str | None = None` を追加
 - `api/app/infrastructure/jwks_client.py`: `ssl_context: ssl.SSLContext | None` パラメータを追加し `PyJWKClient` に渡す
 - `api/app/presentation/dependencies.py`: `_build_ssl_context()` ヘルパーを追加し `JwksClient` を組み立て
 - テスト: `ssl_context` が `PyJWKClient` に渡されることを確認するユニットテストを追加
