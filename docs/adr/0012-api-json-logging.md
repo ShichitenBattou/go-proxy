@@ -1,43 +1,75 @@
-# ADR-0012: uvicorn アクセスログの JSON 化
+# ADR-0012: API ログの JSON 出力への完全統一
 
 ## Status
 提案中（Proposed） - 2026-04-29
 
 ## Context
 
-`api/app/setup/logging.py` にはアプリケーションログ向けに `pythonjsonlogger` の `JsonFormatter` が設定されており、JSON 出力が機能している。
+`api/app/setup/logging.py` には `pythonjsonlogger` の `JsonFormatter` が設定されているが、以下の2つの問題により全ログが JSON にならない。
 
-しかし uvicorn 自体の `uvicorn.access` / `uvicorn.error` ロガーは独自のハンドラーを持つため、この設定が適用されず、テキスト形式で出力される。
+### 問題 1: `basicConfig` によるテキストハンドラーの混入
 
+```python
+logging.basicConfig(level=logging.DEBUG)  # デフォルトのテキストハンドラーを追加
+sh = logging.StreamHandler(sys.stdout)
+sh.setFormatter(formatter)  # JSON ハンドラーを追加
+logging.getLogger().addHandler(sh)
 ```
-INFO:     127.0.0.1:54321 - "GET /health HTTP/1.1" 200 OK
+
+`basicConfig` はルートロガーにデフォルト（テキスト）ハンドラーを追加する。その後に JSON ハンドラーを追加するため、**両方が動作し**、同一ログが2回出力される（テキスト形式 + JSON 形式）。
+
+実際に観測されたテキスト形式の出力:
+```
+ERROR:app.presentation.auth:Unexpected error during JWT verification: ...
 ```
 
-アプリログが JSON なのにアクセスログがテキストでは、ログ収集・検索の一貫性が損なわれる。
+### 問題 2: uvicorn アクセスログが JSON 化されていない
+
+uvicorn 自体の `uvicorn.access` / `uvicorn.error` ロガーは独自ハンドラーを持つため、root logger の JSON 設定が適用されない。
 
 ## Decision
 
-`configure_logging()` 内で uvicorn ロガーのハンドラーをクリアし、`propagate = True` にして root logger の JSON ハンドラーに委譲する。
+`configure_logging()` を以下の方針で書き直す。
+
+1. **`basicConfig` を廃止** — root logger のレベルとハンドラーを直接設定する
+2. **`root.handlers.clear()` で既存ハンドラーを除去** — 重複出力を防ぐ
+3. **JSON stdout ハンドラーのみ設定** — テキストハンドラーを追加しない
+4. **uvicorn ロガーを root に委譲** — `handlers.clear()` + `propagate = True`
 
 ```python
-for name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
-    uvicorn_logger = logging.getLogger(name)
-    uvicorn_logger.handlers.clear()
-    uvicorn_logger.propagate = True
-```
+def configure_logging() -> None:
+    level = logging.DEBUG if settings.stage == "dev" else logging.INFO
 
-既存のアプリケーションログの設定（`StreamHandler` + `JsonFormatter`、環境別レベル分岐）はそのまま維持する。
+    formatter = JsonFormatter(
+        "%(asctime)s - %(levelname)s - %(message)s - %(pathname)s - %(lineno)d - %(process)d"
+    )
+
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(level)
+    handler.setFormatter(formatter)
+
+    root = logging.getLogger()
+    root.setLevel(level)
+    root.handlers.clear()
+    root.addHandler(handler)
+
+    for name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
+        uvicorn_logger = logging.getLogger(name)
+        uvicorn_logger.handlers.clear()
+        uvicorn_logger.propagate = True
+```
 
 ## Consequences
 
 **ポジティブ:**
-- アクセスログがアプリログと同じ JSON 形式に統一される
-- 変更箇所が最小限（`logging.py` へのループ追加のみ）
+- 全ログ（アプリ・uvicorn アクセスログ）が JSON 形式に統一される
+- 同一ログの二重出力が解消される
+- ファイルハンドラーを削除し stdout のみにすることでコンテナ設計に準拠
 
 **ネガティブ:**
-- 特になし
+- ファイルへのローテーション出力がなくなる（ログ永続化はインフラ側で対応）
 
 ## Implementation Notes
 
-- `api/app/setup/logging.py`: `configure_logging()` の末尾に uvicorn ロガーの設定を追加
+- `api/app/setup/logging.py`: `configure_logging()` を全面的に書き直す
 - テストへの影響なし
