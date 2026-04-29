@@ -1,6 +1,5 @@
 import logging
 import sys
-from logging.handlers import TimedRotatingFileHandler
 
 from pythonjsonlogger.json import JsonFormatter
 
@@ -8,30 +7,20 @@ from app.config import settings
 
 
 def configure_logging() -> None:
+    level = logging.DEBUG if settings.stage == "dev" else logging.INFO
+
     formatter = JsonFormatter(
         "%(asctime)s - %(levelname)s - %(message)s - %(pathname)s - %(lineno)d - %(process)d"
     )
 
-    if settings.stage == "dev":
-        logging.basicConfig(level=logging.DEBUG)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(level)
+    handler.setFormatter(formatter)
 
-        sh = logging.StreamHandler(sys.stdout)
-        sh.setLevel(logging.DEBUG)
-        sh.setFormatter(formatter)
-        logging.getLogger().addHandler(sh)
-
-        fh = TimedRotatingFileHandler("api.log", when="midnight", interval=1, backupCount=7)
-        fh.setLevel(logging.DEBUG)
-        fh.setFormatter(formatter)
-        logging.getLogger().addHandler(fh)
-
-    else:
-        logging.basicConfig(level=logging.INFO)
-
-        fh = TimedRotatingFileHandler("api.log", when="midnight", interval=1, backupCount=7)
-        fh.setLevel(logging.DEBUG)
-        fh.setFormatter(formatter)
-        logging.getLogger().addHandler(fh)
+    root = logging.getLogger()
+    root.setLevel(level)
+    root.handlers.clear()
+    root.addHandler(handler)
 
     for name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
         uvicorn_logger = logging.getLogger(name)
