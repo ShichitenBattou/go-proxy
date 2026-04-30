@@ -34,17 +34,175 @@
             </div>
         </div>
     </div>
+
     <div id="main_content">
-        <h1>Welcome to Go Proxy</h1>
-        <div id="posts">
+        <h1>API Explorer</h1>
+
+        <!-- Public -->
+        <section class="api-section">
+            <h2>Public</h2>
+
+            <!-- GET /public/posts -->
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="method-badge method-get">GET</span>
+                    <span class="endpoint-path">/public/posts</span>
+                    <span class="access-badge badge-public">Public</span>
+                </div>
+                <div class="params-section">
+                    <div class="param-row">
+                        <label>author_id <span class="param-type">uuid | optional</span></label>
+                        <input type="text" id="get-public-posts-author_id"
+                            placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000">
+                    </div>
+                    <div class="param-row">
+                        <label>limit <span class="param-type">integer | optional, default: 20</span></label>
+                        <input type="number" id="get-public-posts-limit" placeholder="20">
+                    </div>
+                    <div class="param-row">
+                        <label>offset <span class="param-type">integer | optional, default: 0</span></label>
+                        <input type="number" id="get-public-posts-offset" placeholder="0">
+                    </div>
+                </div>
+                <button class="send-btn" onclick="apiCall('get-public-posts')">Send</button>
+                <pre class="response-area" id="res-get-public-posts"></pre>
+            </div>
+        </section>
+
+        <!-- Posts -->
+        <section class="api-section">
             <h2>Posts</h2>
-        </div>
+
+            <!-- GET /posts -->
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="method-badge method-get">GET</span>
+                    <span class="endpoint-path">/posts</span>
+                    <span class="access-badge badge-auth">要ログイン</span>
+                </div>
+                <div class="params-section">
+                    <div class="param-row">
+                        <label>author_id <span class="param-type">uuid | optional</span></label>
+                        <input type="text" id="get-posts-author_id"
+                            placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000">
+                    </div>
+                    <div class="param-row">
+                        <label>limit <span class="param-type">integer | optional, default: 20</span></label>
+                        <input type="number" id="get-posts-limit" placeholder="20">
+                    </div>
+                    <div class="param-row">
+                        <label>offset <span class="param-type">integer | optional, default: 0</span></label>
+                        <input type="number" id="get-posts-offset" placeholder="0">
+                    </div>
+                </div>
+                <button class="send-btn" onclick="apiCall('get-posts')">Send</button>
+                <pre class="response-area" id="res-get-posts"></pre>
+            </div>
+
+            <!-- GET /posts/{post_id} -->
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="method-badge method-get">GET</span>
+                    <span class="endpoint-path">/posts/{post_id}</span>
+                    <span class="access-badge badge-auth">要ログイン</span>
+                </div>
+                <div class="params-section">
+                    <div class="param-row">
+                        <label>post_id <span class="param-type">uuid | required</span></label>
+                        <input type="text" id="get-post-post_id"
+                            placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000">
+                    </div>
+                </div>
+                <button class="send-btn" onclick="apiCall('get-post')">Send</button>
+                <pre class="response-area" id="res-get-post"></pre>
+            </div>
+
+            <!-- POST /posts -->
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="method-badge method-post">POST</span>
+                    <span class="endpoint-path">/posts</span>
+                    <span class="access-badge badge-auth">要ログイン</span>
+                </div>
+                <div class="params-section">
+                    <div class="param-row">
+                        <label>title <span class="param-type">string | required</span></label>
+                        <input type="text" id="post-posts-title" placeholder="Post title">
+                    </div>
+                    <div class="param-row">
+                        <label>body <span class="param-type">string | required</span></label>
+                        <textarea id="post-posts-body" placeholder="Post body" rows="3"></textarea>
+                    </div>
+                    <div class="param-row">
+                        <label>tags <span class="param-type">string[] | optional, カンマ区切り</span></label>
+                        <input type="text" id="post-posts-tags" placeholder="tag1, tag2, tag3">
+                    </div>
+                </div>
+                <button class="send-btn" onclick="apiCall('post-posts')">Send</button>
+                <pre class="response-area" id="res-post-posts"></pre>
+            </div>
+        </section>
+
+        <!-- Users -->
+        <section class="api-section">
+            <h2>Users</h2>
+
+            <!-- POST /users -->
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="method-badge method-post">POST</span>
+                    <span class="endpoint-path">/users</span>
+                    <span class="access-badge badge-auth">要ログイン</span>
+                </div>
+                <div class="params-section">
+                    <div class="param-row">
+                        <label>keycloak_sub <span class="param-type">string | required</span></label>
+                        <input type="text" id="post-users-keycloak_sub" placeholder="Keycloak subject UUID">
+                    </div>
+                </div>
+                <button class="send-btn" onclick="apiCall('post-users')">Send</button>
+                <pre class="response-area" id="res-post-users"></pre>
+            </div>
+
+            <!-- GET /users/{user_id} -->
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="method-badge method-get">GET</span>
+                    <span class="endpoint-path">/users/{user_id}</span>
+                    <span class="access-badge badge-auth">要ログイン</span>
+                </div>
+                <div class="params-section">
+                    <div class="param-row">
+                        <label>user_id <span class="param-type">uuid | required</span></label>
+                        <input type="text" id="get-user-user_id"
+                            placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000">
+                    </div>
+                </div>
+                <button class="send-btn" onclick="apiCall('get-user')">Send</button>
+                <pre class="response-area" id="res-get-user"></pre>
+            </div>
+
+            <!-- DELETE /users/{user_id} -->
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="method-badge method-delete">DELETE</span>
+                    <span class="endpoint-path">/users/{user_id}</span>
+                    <span class="access-badge badge-auth">要ログイン</span>
+                </div>
+                <div class="params-section">
+                    <div class="param-row">
+                        <label>user_id <span class="param-type">uuid | required</span></label>
+                        <input type="text" id="delete-user-user_id"
+                            placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000">
+                    </div>
+                </div>
+                <button class="send-btn" onclick="apiCall('delete-user')">Send</button>
+                <pre class="response-area" id="res-delete-user"></pre>
+            </div>
+        </section>
     </div>
 </body>
 
 <script src="/index.js"></script>
-<script>
-    getPosts();
-</script>
 
 </html>

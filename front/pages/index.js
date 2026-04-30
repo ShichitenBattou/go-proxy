@@ -1,12 +1,149 @@
-async function getPosts() {
+const BASE_URL = 'https://auth.local/api';
+
+async function apiCall(endpointId) {
+    const resEl = document.getElementById(`res-${endpointId}`);
+    resEl.textContent = '...';
+
     try {
-        const response = await fetch('https://auth.local/api/posts');
-        const data = await response.json();
-        console.log(data);
+        let response;
+        switch (endpointId) {
+            case 'get-public-posts':
+                response = await getPublicPosts();
+                break;
+            case 'get-posts':
+                response = await getPosts();
+                break;
+            case 'get-post':
+                response = await getPost();
+                break;
+            case 'post-posts':
+                response = await createPost();
+                break;
+            case 'post-users':
+                response = await createUser();
+                break;
+            case 'get-user':
+                response = await getUser();
+                break;
+            case 'delete-user':
+                response = await deleteUser();
+                break;
+            default:
+                resEl.textContent = `Unknown endpoint: ${endpointId}`;
+                return;
+        }
+        resEl.textContent = response;
     } catch (error) {
-        console.error('Error fetching posts:', error);
-        return [];
+        resEl.textContent = `Error: ${error.message}`;
     }
+}
+
+async function renderResponse(response) {
+    const status = `${response.status} ${response.statusText}`;
+    if (response.status === 204) {
+        return `${status}`;
+    }
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+        const data = await response.json();
+        return `${status}\n\n${JSON.stringify(data, null, 2)}`;
+    }
+    const text = await response.text();
+    return `${status}\n\n${text}`;
+}
+
+function buildQueryString(params) {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+        if (value !== '' && value !== null && value !== undefined) {
+            query.append(key, value);
+        }
+    }
+    const qs = query.toString();
+    return qs ? `?${qs}` : '';
+}
+
+// GET /public/posts
+async function getPublicPosts() {
+    const authorId = document.getElementById('get-public-posts-author_id').value.trim();
+    const limit = document.getElementById('get-public-posts-limit').value.trim();
+    const offset = document.getElementById('get-public-posts-offset').value.trim();
+
+    const qs = buildQueryString({ author_id: authorId, limit, offset });
+    const response = await fetch(`${BASE_URL}/public/posts${qs}`, {
+        credentials: 'include',
+    });
+    return renderResponse(response);
+}
+
+// GET /posts
+async function getPosts() {
+    const authorId = document.getElementById('get-posts-author_id').value.trim();
+    const limit = document.getElementById('get-posts-limit').value.trim();
+    const offset = document.getElementById('get-posts-offset').value.trim();
+
+    const qs = buildQueryString({ author_id: authorId, limit, offset });
+    const response = await fetch(`${BASE_URL}/posts${qs}`, {
+        credentials: 'include',
+    });
+    return renderResponse(response);
+}
+
+// GET /posts/{post_id}
+async function getPost() {
+    const postId = document.getElementById('get-post-post_id').value.trim();
+    const response = await fetch(`${BASE_URL}/posts/${postId}`, {
+        credentials: 'include',
+    });
+    return renderResponse(response);
+}
+
+// POST /posts
+async function createPost() {
+    const title = document.getElementById('post-posts-title').value.trim();
+    const body = document.getElementById('post-posts-body').value.trim();
+    const tagsRaw = document.getElementById('post-posts-tags').value.trim();
+    const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(t => t) : [];
+
+    const response = await fetch(`${BASE_URL}/posts`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, body, tags }),
+    });
+    return renderResponse(response);
+}
+
+// POST /users
+async function createUser() {
+    const keycloakSub = document.getElementById('post-users-keycloak_sub').value.trim();
+
+    const response = await fetch(`${BASE_URL}/users`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keycloak_sub: keycloakSub }),
+    });
+    return renderResponse(response);
+}
+
+// GET /users/{user_id}
+async function getUser() {
+    const userId = document.getElementById('get-user-user_id').value.trim();
+    const response = await fetch(`${BASE_URL}/users/${userId}`, {
+        credentials: 'include',
+    });
+    return renderResponse(response);
+}
+
+// DELETE /users/{user_id}
+async function deleteUser() {
+    const userId = document.getElementById('delete-user-user_id').value.trim();
+    const response = await fetch(`${BASE_URL}/users/${userId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+    });
+    return renderResponse(response);
 }
 
 async function checkAuthStatus() {
@@ -20,29 +157,23 @@ async function checkAuthStatus() {
 
         if (response.ok) {
             const user = await response.json();
-            // ログイン状態
             loggedOutEl.classList.add('hidden');
             loggedInEl.classList.remove('hidden');
 
-            // ユーザー名を表示
             const userNameEl = document.getElementById('user-name');
             if (userNameEl && user.name) {
                 userNameEl.textContent = user.name;
             } else if (userNameEl && user.email) {
-                // name が取得できない場合は email を表示
                 userNameEl.textContent = user.email;
             } else if (userNameEl && user.preferred_username) {
-                // preferred_username を表示
                 userNameEl.textContent = user.preferred_username;
             }
         } else {
-            // ログアウト状態
             loggedInEl.classList.add('hidden');
             loggedOutEl.classList.remove('hidden');
         }
     } catch (error) {
         console.error('Error checking auth status:', error);
-        // エラー時はログアウト状態として扱う
         const loggedOutEl = document.querySelector('.auth-logged-out');
         const loggedInEl = document.querySelector('.auth-logged-in');
         if (loggedInEl) loggedInEl.classList.add('hidden');
@@ -58,7 +189,6 @@ async function logout() {
         });
 
         if (response.ok) {
-            // ログアウト成功時は UI を更新
             const loggedOutEl = document.querySelector('.auth-logged-out');
             const loggedInEl = document.querySelector('.auth-logged-in');
             loggedInEl.classList.add('hidden');
@@ -73,12 +203,9 @@ async function logout() {
     }
 }
 
-// 初期化処理
 document.addEventListener('DOMContentLoaded', () => {
-    // 認証状態をチェック
     checkAuthStatus();
 
-    // ログアウトボタンのイベントリスナーを設定
     const logoutButton = document.getElementById('logout');
     if (logoutButton) {
         logoutButton.addEventListener('click', logout);
