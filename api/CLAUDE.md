@@ -7,6 +7,10 @@
 API バックエンドサービス — BFF レイヤーからプロキシされたリクエストを受け取る Python/FastAPI HTTP サーバー。
 クリーンアーキテクチャ ([参考](https://github.com/ivan-borovets/fastapi-clean-example)) を採用。Docker 内ではポート 8000 で動作する。
 
+## ルール（厳守）
+
+- 実装時、テストコードを必ず追加すること
+
 ## コマンド
 
 ```bash
