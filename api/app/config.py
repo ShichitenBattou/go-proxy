@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,6 +21,7 @@ class Settings(BaseSettings):
 
     # JWKS キャッシュ設定
     jwks_refresh_interval: int = 300  # 5分
+    jwks_ssl_ca_bundle: Path | None = None  # カスタム CA バンドルのファイルパス
 
     stage: str = "dev"  # 開発環境用のデフォルト値
 

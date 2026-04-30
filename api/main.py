@@ -12,9 +12,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.infrastructure.jwks_client import JwksClient
 from app.presentation import auth
 from app.presentation.routers import posts, public, users
+from app.setup.jwks import build_jwks_client
 from app.setup.logging import configure_logging
 
 configure_logging()
@@ -31,11 +31,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Starting up API server...")
 
     # JWKS クライアントを初期化
-    jwks_client = JwksClient(
-        jwks_uri=settings.keycloak_jwks_uri,
-        cache_keys=True,
-        refresh_interval=settings.jwks_refresh_interval,
-    )
+    jwks_client = build_jwks_client(settings)
 
     jwks_client.start()
 

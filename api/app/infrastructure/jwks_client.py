@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import ssl
 from typing import Any
 
 from jwt import PyJWKClient, PyJWKClientError
@@ -22,10 +23,12 @@ class JwksClient:
         jwks_uri: str,
         cache_keys: bool = True,
         refresh_interval: int = 300,  # 5分
+        ssl_context: ssl.SSLContext | None = None,
     ) -> None:
         self._jwks_uri = jwks_uri
         self._cache_keys = cache_keys
         self._refresh_interval = refresh_interval
+        self._ssl_context = ssl_context
         self._client: PyJWKClient | None = None
         self._refresh_task: asyncio.Task[None] | None = None
 
@@ -34,6 +37,7 @@ class JwksClient:
         self._client = PyJWKClient(
             uri=self._jwks_uri,
             cache_keys=self._cache_keys,
+            ssl_context=self._ssl_context,
         )
         logger.info(f"JWKS client initialized with URI: {self._jwks_uri}")
 
