@@ -24,7 +24,6 @@ services:
     build: ./bff
     ports:
       - "8080:8080"
-      # - "443:443"
     depends_on:
       - api
       - redis
@@ -35,14 +34,11 @@ services:
       retries: 5
       start_period: 30s
     env_file:
-      - bff/.env.example
+      - ${HOST_WORKSPACE:-.}/bff/.env
     networks:
       go-proxy-network:
     volumes:
-      # - ${HOST_WORKSPACE:-.}/front/rootCA.crt:/usr/local/share/ca-certificates/rootCA.crt:ro
       - ${HOST_WORKSPACE:-.}/front/rootCA.crt:/app/rootCA.crt:ro
-    # command: >
-    #   sh -c "update-ca-certificates && ./main"
 
   redis:
     image: redis:8.4
@@ -62,8 +58,12 @@ services:
       timeout: 30s
       retries: 5
       start_period: 30s
+    environment:
+      - JWKS_SSL_CA_BUNDLE=/app/rootCA.crt
     env_file:
-      - .env
+      - ${HOST_WORKSPACE:-.}/api/.env
+    volumes:
+      - ${HOST_WORKSPACE:-.}/${ROOT_CA_PATH}:/app/rootCA.crt:ro
     depends_on:
       - api_db
     networks:
@@ -104,7 +104,7 @@ services:
       kc_postgres:
         condition: service_healthy
     volumes:
-      - ${HOST_WORKSPACE}/keycloak/data/import/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - ${HOST_WORKSPACE:-.}/keycloak/data/import/realm.json:/opt/keycloak/data/import/realm.json:ro
     command: [
       "start-dev",
       "--import-realm",
