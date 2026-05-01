@@ -72,6 +72,15 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	slog.Info("Successfully exchanged code for tokens")
 
+	// Exchange bff access token for api access token via RFC 8693 Token Exchange
+	apiAccessToken, err := exchangeForAPIToken(ctx, token.AccessToken)
+	if err != nil {
+		slog.Error("Failed to exchange token for API access token", "error", err)
+		http.Error(w, "Authentication failed", http.StatusUnauthorized)
+		return
+	}
+	slog.Info("Successfully exchanged for API access token")
+
 	// Extract and verify ID Token
 	rawIDToken, ok := token.Extra("id_token").(string)
 	if !ok {
@@ -111,7 +120,7 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		Email:        claims.Email,
 		Name:         claims.Name,
 		IDToken:      rawIDToken,
-		AccessToken:  token.AccessToken,
+		AccessToken:  apiAccessToken,
 		RefreshToken: token.RefreshToken,
 	}
 

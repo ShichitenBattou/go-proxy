@@ -48,8 +48,8 @@ func TestGetConfig(t *testing.T) {
 	if cfg.OIDCProviderURL != "https://auth.local/idp/realms/go-proxy" {
 		t.Errorf("Expected default OIDCProviderURL, got '%s'", cfg.OIDCProviderURL)
 	}
-	if cfg.OAuth2ClientID != "api" {
-		t.Errorf("Expected default OAuth2ClientID to be 'api', got '%s'", cfg.OAuth2ClientID)
+	if cfg.OAuth2ClientID != "bff" {
+		t.Errorf("Expected default OAuth2ClientID to be 'bff', got '%s'", cfg.OAuth2ClientID)
 	}
 
 	// Redis settings

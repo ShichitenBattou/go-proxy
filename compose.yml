@@ -108,6 +108,7 @@ services:
     command: [
       "start-dev",
       "--import-realm",
+      "--features=standard-token-exchange",
       "--proxy-headers", "xforwarded",
       "--hostname", "https://auth.local/idp/",
       "--hostname-strict", "true",

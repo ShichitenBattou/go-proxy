@@ -317,7 +317,7 @@
         "oidc.ciba.grant.enabled": "false",
         "client.secret.creation.time": "1775044334",
         "backchannel.logout.session.required": "true",
-        "standard.token.exchange.enabled": "false",
+        "standard.token.exchange.enabled": "true",
         "frontchannel.logout.session.required": "true",
         "oauth2.device.authorization.grant.enabled": "false",
         "display.on.consent.screen": "false",
@@ -381,7 +381,7 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
-      "publicClient": true,
+      "publicClient": false,
       "frontchannelLogout": true,
       "protocol": "openid-connect",
       "attributes": {
@@ -415,7 +415,8 @@
         "offline_access",
         "organization",
         "microprofile-jwt"
-      ]
+      ],
+      "secret": "BMGMW9o5Pxg1Zmb8mnUiixuQO3wTWSyA"
     },
     {
       "id": "1a1c684e-1c7e-4056-9df5-78daf9ac270e",

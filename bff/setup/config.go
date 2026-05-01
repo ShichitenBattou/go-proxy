@@ -22,7 +22,8 @@ type Config struct {
 	OAuth2ClientID     string
 	OAuth2ClientSecret string
 	OAuth2RedirectURL  string
-	OAuth2Scopes       []string
+	OAuth2Scopes        []string
+	OAuth2TargetAudience string // Audience for token exchange (resource server client ID)
 
 	// Redis settings
 	RedisAddr         string
@@ -86,10 +87,11 @@ func GetConfig() *Config {
 
 			// Authentication (Keycloak/OIDC) settings
 			OIDCProviderURL:    getEnv("OIDC_PROVIDER_URL", "https://auth.local/idp/realms/go-proxy"),
-			OAuth2ClientID:     getEnv("OAUTH2_CLIENT_ID", "api"),
+			OAuth2ClientID:     getEnv("OAUTH2_CLIENT_ID", "bff"),
 			OAuth2ClientSecret: getEnv("OAUTH2_CLIENT_SECRET", ""),
 			OAuth2RedirectURL:  getEnv("OAUTH2_REDIRECT_URL", "https://auth.local/api/auth/callback"),
-			OAuth2Scopes:       getEnvSlice("OAUTH2_SCOPES", []string{"openid", "profile", "email"}),
+			OAuth2Scopes:         getEnvSlice("OAUTH2_SCOPES", []string{"openid", "profile", "email"}),
+				OAuth2TargetAudience: getEnv("OAUTH2_TARGET_AUDIENCE", "api"),
 
 			// Redis settings
 			RedisAddr:        getEnv("REDIS_ADDR", "redis:6379"),
