@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	jsonHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})
+	jsonHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{AddSource: true, Level: slog.LevelDebug})
 	slog.SetDefault(slog.New(jsonHandler))
 
 	cfg := setup.GetConfig()
