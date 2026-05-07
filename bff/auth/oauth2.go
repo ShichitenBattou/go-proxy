@@ -47,10 +47,10 @@ func exchangeForAPIToken(ctx context.Context, bffAccessToken string) (string, er
 	tokenURL := cfg.OIDCProviderURL + "/protocol/openid-connect/token"
 
 	formData := url.Values{}
-	formData.Set("grant_type", "urn:ietf:params:oauth2:grant-type:token-exchange")
+	formData.Set("grant_type", "urn:ietf:params:oauth:grant-type:token-exchange")
 	formData.Set("subject_token", bffAccessToken)
-	formData.Set("subject_token_type", "urn:ietf:params:oauth2:token-type:access_token")
-	formData.Set("requested_token_type", "urn:ietf:params:oauth2:token-type:access_token")
+	formData.Set("subject_token_type", "urn:ietf:params:oauth:token-type:access_token")
+	formData.Set("requested_token_type", "urn:ietf:params:oauth:token-type:access_token")
 	formData.Set("audience", cfg.OAuth2TargetAudience)
 	formData.Set("client_id", cfg.OAuth2ClientID)
 	formData.Set("client_secret", cfg.OAuth2ClientSecret)
