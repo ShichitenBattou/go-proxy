@@ -19,6 +19,13 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme; 
         proxy_set_header X-Forwarded-Prefix /idp;
         add_header Cache-Control "no-store";
+        proxy_intercept_errors on;
+        error_page 502 503 504 /error/keycloak_unavailable.html;
+    }
+
+    location = /error/keycloak_unavailable.html {
+        root /var/www/pages;
+        internal;
     }
 
     location /api/ {

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>認証サービスが利用できません - Go Proxy</title>
+    <style>
+        :root {
+            --primary-bg-color: #f0f0f0;
+            --primary-text-color: #333;
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --border-radius: 4px;
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: #fff;
+            color: var(--primary-text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #header {
+            background-color: var(--primary-bg-color);
+            padding: 1em;
+            border-bottom: 1px solid var(--secondary-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+        }
+
+        #header h1 {
+            color: var(--primary-color);
+            font-size: 2.5em;
+        }
+
+        #main_content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2em;
+        }
+
+        .error-card {
+            background-color: var(--primary-bg-color);
+            border: 1px solid #dee2e6;
+            border-radius: var(--border-radius);
+            padding: 2.5em 3em;
+            max-width: 520px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .error-code {
+            font-size: 4em;
+            font-weight: bold;
+            color: var(--secondary-color);
+            line-height: 1;
+            margin-bottom: 0.25em;
+        }
+
+        .error-title {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: var(--primary-text-color);
+            margin-bottom: 0.75em;
+        }
+
+        .error-message {
+            color: var(--secondary-color);
+            line-height: 1.6;
+            margin-bottom: 2em;
+        }
+
+        .home-link {
+            display: inline-block;
+            background-color: var(--primary-color);
+            color: #fff;
+            padding: 0.6em 1.5em;
+            border-radius: var(--border-radius);
+            text-decoration: none;
+            font-size: 1em;
+        }
+
+        .home-link:hover {
+            opacity: 0.85;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="header">
+        <div class="left-header">
+            <h1>Go Proxy</h1>
+        </div>
+    </div>
+
+    <div id="main_content">
+        <div class="error-card">
+            <div class="error-code">503</div>
+            <div class="error-title">認証サービスが利用できません</div>
+            <p class="error-message">
+                認証サービス (Keycloak) が起動していないか、現在応答できない状態です。<br>
+                しばらくしてから再度お試しください。
+            </p>
+            <a class="home-link" href="/">ホームへ戻る</a>
+        </div>
+    </div>
+</body>
+
+</html>
