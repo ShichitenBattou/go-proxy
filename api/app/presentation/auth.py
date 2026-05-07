@@ -1,6 +1,5 @@
 import json
 import logging
-import sys
 from typing import Annotated
 
 import jwt
@@ -89,19 +88,6 @@ async def get_current_sub(
         else:
             # JWKS から署名鍵を取得
             signing_key = _jwks_client.get_signing_key(kid).key
-
-        json.dump(
-            jwt.get_unverified_header(token), sys.stdout, indent=2
-        )  # ヘッダーの検証（kid の存在確認など）
-        json.dump(
-            jose_jwt.get_unverified_claims(token),  # クレームの検証（iss, aud の存在確認など）
-            sys.stdout,
-            indent=2,
-        )
-
-        print(
-            f"issuer: {_issuer}, token issuer: {jose_jwt.get_unverified_claims(token).get('iss')}"
-        )
 
         # JWT をデコード・検証
         payload = jwt.decode(

@@ -120,3 +120,43 @@ BFF は **Vertical Slice Architecture** で構成されている。機能・ユ�
 - Keycloak の管理者認証情報のデフォルトは `admin/admin`、DB は `postgres/postgres/postgres`。
 - `.env` の `HOST_WORKSPACE` は **ホストマシン** 上のリポジトリ絶対パスを指定する (Keycloak レルムインポート用 Docker ボリュームマウントに使用)。
 - `compose.yml` は Postgres 永続化に `pgdata` ボリュームを使用。状態をリセットする場合は削除が必要。
+
+### 既知の技術的負債
+
+以下は把握済みの課題。新機能開発より先に対処すること（特に中優先度以上）。
+
+#### #5 レスポンスボディ未読によるコネクション再利用不可 — `bff/auth/provision.go`（中）
+
+現在はエラー時にボディを読んでクローズしているが、成功時も `io.ReadAll` で消費している。
+HTTP/1.1 ではボディ全体を消費してからクローズしないとコネクションが再利用されない点に注意。
+将来的にコネクションプールを導入する場合は、全パスで確実にボディを消費していることを確認すること。
+
+#### #6 API テストに旧仕様の痕跡 — `api/tests/presentation/test_users.py`（中）
+
+`TestGetUser` 内で `POST /users` を呼ぶ際に `json={"keycloak_sub": "..."}` を渡しているケースが残存している。
+現在の実装はリクエストボディを無視するため動作はするが、テストが実装と乖離している。
+`test_users.py` を修正する際は、`POST /users` の呼び出しからボディを削除すること。
+
+#### #7 冪等 POST のステータスコード — API / BFF（中）
+
+`POST /users` は既存ユーザーの場合も `201 Created` を返す（HTTP セマンティクス上は `200 OK` が適切）。
+`provision.go` 側は `201` のみを成功とみなすよう実装済み。
+将来 API の挙動を変える場合は BFF 側の期待ステータスコードも合わせて変更すること。
+
+#### #8 Redis にトークンが平文保存 — `bff/redis/redis.go`（中）
+
+`SessionData` の `AccessToken` / `RefreshToken` が平文で Redis に保存されている。
+Redis が侵害された場合、全ユーザーのトークンが漏洩しユーザーのなりすましが可能になる。
+本番投入前に Redis の TLS 有効化・ACL 設定・ネットワーク分離を必ず実施すること。
+
+#### #9 Redis クライアントがリクエストごとに生成 — `bff/redis/redis.go`（低）
+
+`createClient()` が全 Redis 操作で毎回呼ばれコネクションプールがない。
+高トラフィック時にコネクション数が増加し、パフォーマンスが劣化する。
+`sync.Once` でシングルトンクライアントを生成する方式に移行することが望ましい。
+
+#### #10 エラー詳細が HTTP レスポンスに露出 — `api/app/presentation/auth.py`（低）
+
+`jwt.InvalidTokenError` の詳細が `detail=f"Invalid token: {str(e)}"` でそのままクライアントに返される。
+攻撃者に JWT 検証ライブラリの内部情報やトークン形式のヒントを与えうる。
+本番環境では `"Invalid token"` のような固定メッセージに差し替えること（`settings.stage` で分岐可能）。

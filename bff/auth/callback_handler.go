@@ -155,9 +155,15 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	slog.Info("Session created", "sessionId", sessionID, "userId", claims.Sub)
 
 	// JIT プロビジョニング: API 側にユーザーレコードを作成する
-	// エラー時はログのみ（ソフトフェイル）。API の一時停止でログインを失敗させない。
-	if err := provisionUser(r.Context(), apiAccessToken); err != nil {
-		slog.Error("Failed to provision user", "sub", claims.Sub, "error", err)
+	// エラー時はログのみ（ソフトフェイル）。API の一時停止でログイン自体を失敗させない。
+	// 注意: プロビジョニング失敗時はセッションが作成されるが users テーブルにレコードが存在しない。
+	// この場合、以降の認証済み API リクエストは get_current_user で 401 になる可能性がある。
+	// ユーザーが再ログインすることでプロビジョニングが再試行される。
+	if err := provisionUser(r.Context(), apiAccessToken, cfg.ProxyTarget); err != nil {
+		slog.Warn("JIT provisioning failed; session created but user may be missing from DB",
+			"sub", claims.Sub,
+			"error", err,
+		)
 	}
 
 	// Redirect to original URL

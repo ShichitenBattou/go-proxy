@@ -1,19 +1,26 @@
 package auth
 
 import (
-	"bff/setup"
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
+	"time"
 )
+
+// provisionHTTPClient は JIT プロビジョニング専用の HTTP クライアント。
+// API は内部ネットワーク上の plain HTTP のため、カスタム TLS は不要。
+// タイムアウトを設定し、API の無応答による goroutine ハングを防ぐ。
+var provisionHTTPClient = &http.Client{
+	Timeout: 10 * time.Second,
+}
 
 // provisionUser は API の POST /users を呼び出し、ユーザーレコードを作成する。
 // JWT の sub クレームは Bearer トークンから API 側が取得するため、リクエストボディは不要。
-// API が一時的に停止している場合でも認証フローを失敗させないため、エラーはログのみに留める（ソフトフェイル）。
-func provisionUser(ctx context.Context, apiAccessToken string) error {
-	cfg := setup.GetConfig()
-	url := fmt.Sprintf("http://%s/users", cfg.ProxyTarget)
+// targetHost には PROXY_TARGET 環境変数の値（例: "api:8081"）を渡す。
+func provisionUser(ctx context.Context, apiAccessToken, targetHost string) error {
+	url := fmt.Sprintf("http://%s/users", targetHost)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
 	if err != nil {
@@ -21,14 +28,17 @@ func provisionUser(ctx context.Context, apiAccessToken string) error {
 	}
 	req.Header.Set("Authorization", "Bearer "+apiAccessToken)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := provisionHTTPClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send provision request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("provision request returned unexpected status: %d", resp.StatusCode)
+	// レスポンスボディを必ず消費してコネクションを再利用可能にする
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("provision request returned unexpected status %d: %s", resp.StatusCode, string(body))
 	}
 
 	slog.Info("User provisioned successfully")
