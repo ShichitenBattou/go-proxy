@@ -112,6 +112,7 @@ services:
       "--proxy-headers", "xforwarded",
       "--hostname", "https://auth.local/idp/",
       "--hostname-strict", "true",
+      "--health-enabled=true",
     ]
     networks:
       go-proxy-network:
