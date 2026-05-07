@@ -147,6 +147,7 @@ async def client(
 
     app.dependency_overrides[get_user_repo] = lambda: user_repo
     app.dependency_overrides[get_post_repo] = lambda: post_repo
+    app.dependency_overrides[get_current_sub] = lambda: test_user.keycloak_sub
     app.dependency_overrides[get_current_user] = lambda: test_user
 
     # Interactors must also be overridden because their default Depends chain

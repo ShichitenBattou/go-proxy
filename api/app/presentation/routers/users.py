@@ -9,6 +9,7 @@ from app.application.commands.deactivate_user import DeactivateUserCommand, Deac
 from app.application.queries.get_user import GetUserInteractor
 from app.domain.entities.user import UserRole
 from app.domain.exceptions import UserNotFoundError
+from app.presentation.auth import CurrentSub
 from app.presentation.dependencies import (
     CurrentUser,
     get_create_user_interactor,
@@ -17,10 +18,6 @@ from app.presentation.dependencies import (
 )
 
 router = APIRouter(prefix="/users", tags=["users"])
-
-
-class CreateUserRequest(BaseModel):
-    keycloak_sub: str
 
 
 class UserResponse(BaseModel):
@@ -32,11 +29,10 @@ class UserResponse(BaseModel):
 
 @router.post("", status_code=201, response_model=UserResponse)
 async def create_user(
-    body: CreateUserRequest,
-    current_user: CurrentUser,
+    keycloak_sub: CurrentSub,
     interactor: Annotated[CreateUserInteractor, Depends(get_create_user_interactor)],
 ) -> UserResponse:
-    user = await interactor.execute(CreateUserCommand(keycloak_sub=body.keycloak_sub))
+    user = await interactor.execute(CreateUserCommand(keycloak_sub=keycloak_sub))
     return UserResponse(
         id=user.id,
         keycloak_sub=user.keycloak_sub,

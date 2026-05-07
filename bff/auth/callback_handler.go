@@ -154,6 +154,12 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 
 	slog.Info("Session created", "sessionId", sessionID, "userId", claims.Sub)
 
+	// JIT プロビジョニング: API 側にユーザーレコードを作成する
+	// エラー時はログのみ（ソフトフェイル）。API の一時停止でログインを失敗させない。
+	if err := provisionUser(r.Context(), apiAccessToken); err != nil {
+		slog.Error("Failed to provision user", "sub", claims.Sub, "error", err)
+	}
+
 	// Redirect to original URL
 	redirectURL := stateData.RedirectURL.String()
 	if redirectURL == "" {

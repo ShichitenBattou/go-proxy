@@ -7,27 +7,25 @@ from tests.presentation.conftest import InMemoryUserRepository
 
 class TestCreateUser:
     async def test_create_user_returns_201(self, client: AsyncClient) -> None:
-        response = await client.post("/users", json={"keycloak_sub": "new-sub-001"})
+        response = await client.post("/users")
 
         assert response.status_code == 201
         body = response.json()
         assert "id" in body
-        assert body["keycloak_sub"] == "new-sub-001"
+        assert body["keycloak_sub"] == "sub-test-user"
         assert body["role"] == "user"
         assert body["is_active"] is True
 
     async def test_create_user_idempotent_returns_201(self, client: AsyncClient) -> None:
-        payload = {"keycloak_sub": "idempotent-sub"}
-
-        first = await client.post("/users", json=payload)
-        second = await client.post("/users", json=payload)
+        first = await client.post("/users")
+        second = await client.post("/users")
 
         assert first.status_code == 201
         assert second.status_code == 201
         assert first.json()["id"] == second.json()["id"]
 
     async def test_create_user_requires_auth(self, unauthenticated_client: AsyncClient) -> None:
-        response = await unauthenticated_client.post("/users", json={"keycloak_sub": "unauth-sub"})
+        response = await unauthenticated_client.post("/users")
 
         assert response.status_code == 401
 
