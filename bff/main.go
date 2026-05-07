@@ -44,7 +44,7 @@ func main() {
 		// Authentication endpoints
 		r.Route("/auth", func(r chi.Router) {
 			r.Get("/login", auth.LoginHandler)
-			r.Get("/callback", auth.CallbackHandler)
+			r.Get("/callback", auth.NewCallbackHandler(auth.ProvisionUser))
 			r.Get("/me", auth.MeHandler)
 			r.Post("/logout", auth.LogoutHandler)
 		})

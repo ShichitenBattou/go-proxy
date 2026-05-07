@@ -35,7 +35,7 @@ class TestGetUser:
         self, client: AsyncClient, user_repo: InMemoryUserRepository
     ) -> None:
         # Create a user first, then retrieve it.
-        create_resp = await client.post("/users", json={"keycloak_sub": "get-sub"})
+        create_resp = await client.post("/users")
         user_id = create_resp.json()["id"]
 
         response = await client.get(f"/users/{user_id}")
@@ -61,7 +61,7 @@ class TestGetUser:
 class TestDeactivateUser:
     async def test_deactivate_user_returns_204(self, client: AsyncClient) -> None:
         # Create a user first, then deactivate it.
-        create_resp = await client.post("/users", json={"keycloak_sub": "deactivate-sub"})
+        create_resp = await client.post("/users")
         assert create_resp.status_code == 201
         user_id = create_resp.json()["id"]
 

@@ -21,99 +21,122 @@ type IDTokenClaims struct {
 	Name          string `json:"name"`
 }
 
-func CallbackHandler(w http.ResponseWriter, r *http.Request) {
-	cfg := setup.GetConfig()
-	slog.Info("Received callback request", "url", r.URL.String(), "requestedHost", r.Host, "ip", r.RemoteAddr)
-	slog.Debug("Request parameters", "query", r.URL.Query().Encode())
+// NewCallbackHandler は ProvisionFunc を受け取り、OAuth2 コールバックハンドラーを返す。
+// 本番では auth.NewCallbackHandler(auth.ProvisionUser) として使用する。
+// テストでは mock の ProvisionFunc を渡してソフトフェイル挙動を検証できる。
+func NewCallbackHandler(provisionFn ProvisionFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cfg := setup.GetConfig()
+		slog.Info("Received callback request", "url", r.URL.String(), "requestedHost", r.Host, "ip", r.RemoteAddr)
+		slog.Debug("Request parameters", "query", r.URL.Query().Encode())
 
-	// Validate and retrieve state token (CSRF protection)
-	stateParam := r.URL.Query().Get("state")
-	stateUUID, err := uuid.Parse(stateParam)
-	if err != nil {
-		slog.Error("Invalid state parameter", "state", stateParam, "error", err)
-		http.Error(w, "Invalid state parameter", http.StatusForbidden)
-		return
+		// Validate and retrieve state token (CSRF protection)
+		stateParam := r.URL.Query().Get("state")
+		stateUUID, err := uuid.Parse(stateParam)
+		if err != nil {
+			slog.Error("Invalid state parameter", "state", stateParam, "error", err)
+			http.Error(w, "Invalid state parameter", http.StatusForbidden)
+			return
+		}
+
+		stateData, err := redis.GetStateValue(stateUUID)
+		if err != nil {
+			slog.Error("Failed to get state from Redis", "state", stateUUID, "error", err)
+			http.Error(w, "Invalid state parameter", http.StatusForbidden)
+			return
+		}
+
+		// Validate state token expiration (defense in depth with Redis TTL)
+		if time.Since(stateData.CreatedAt) > cfg.StateTTL {
+			slog.Error("State token expired", "state", stateUUID, "createdAt", stateData.CreatedAt, "age", time.Since(stateData.CreatedAt), "ttl", cfg.StateTTL)
+			redis.DeleteState(stateUUID) // Clean up expired state
+			http.Error(w, "State expired", http.StatusForbidden)
+			return
+		}
+
+		// Delete state token (one-time use)
+		if err := redis.DeleteState(stateUUID); err != nil {
+			slog.Error("Failed to delete state from Redis", "error", err)
+		}
+
+		// Exchange authorization code for tokens
+		ctx := oidc.ClientContext(context.Background(), utils.GetInternalHTTPClient())
+		oauth2Config, err := getOAuth2Config()
+		if err != nil {
+			slog.Error("Failed to get OAuth2 config", "error", err)
+			http.Error(w, "Authentication service unavailable", http.StatusServiceUnavailable)
+			return
+		}
+
+		token, err := oauth2Config.Exchange(ctx, r.URL.Query().Get("code"))
+		if err != nil {
+			slog.Error("Failed to exchange code for token", "error", err)
+			http.Error(w, "Authentication failed", http.StatusUnauthorized)
+			return
+		}
+		slog.Info("Successfully exchanged code for tokens")
+
+		// Exchange bff access token for api access token via RFC 8693 Token Exchange
+		apiAccessToken, err := exchangeForAPIToken(ctx, token.AccessToken)
+		if err != nil {
+			slog.Error("Failed to exchange token for API access token", "error", err)
+			http.Error(w, "Authentication failed", http.StatusUnauthorized)
+			return
+		}
+		slog.Info("Successfully exchanged for API access token")
+
+		// Extract and verify ID Token
+		rawIDToken, ok := token.Extra("id_token").(string)
+		if !ok {
+			slog.Error("ID Token not found in token response")
+			http.Error(w, "Authentication failed", http.StatusUnauthorized)
+			return
+		}
+
+		provider, err := oidc.NewProvider(ctx, cfg.OIDCProviderURL)
+		if err != nil {
+			slog.Error("Failed to get OIDC provider", "error", err)
+			http.Error(w, "Authentication failed", http.StatusInternalServerError)
+			return
+		}
+
+		verifier := provider.Verifier(&oidc.Config{ClientID: cfg.OAuth2ClientID})
+		idToken, err := verifier.Verify(ctx, rawIDToken)
+		if err != nil {
+			slog.Error("Failed to verify ID Token", "error", err)
+			http.Error(w, "Invalid ID token", http.StatusUnauthorized)
+			return
+		}
+
+		// Parse claims from ID Token
+		var claims IDTokenClaims
+		if err := idToken.Claims(&claims); err != nil {
+			slog.Error("Failed to parse ID Token claims", "error", err)
+			http.Error(w, "Authentication failed", http.StatusInternalServerError)
+			return
+		}
+
+		slog.Info("ID Token verified", "sub", claims.Sub, "email", claims.Email)
+
+		redirectURL := stateData.RedirectURL.String()
+		if redirectURL == "" {
+			redirectURL = "/"
+		}
+
+		completeCallback(w, r, cfg, claims, rawIDToken, apiAccessToken, token.RefreshToken, redirectURL, provisionFn)
 	}
+}
 
-	stateData, err := redis.GetStateValue(stateUUID)
-	if err != nil {
-		slog.Error("Failed to get state from Redis", "state", stateUUID, "error", err)
-		http.Error(w, "Invalid state parameter", http.StatusForbidden)
-		return
-	}
-
-	// Validate state token expiration (defense in depth with Redis TTL)
-	if time.Since(stateData.CreatedAt) > cfg.StateTTL {
-		slog.Error("State token expired", "state", stateUUID, "createdAt", stateData.CreatedAt, "age", time.Since(stateData.CreatedAt), "ttl", cfg.StateTTL)
-		redis.DeleteState(stateUUID) // Clean up expired state
-		http.Error(w, "State expired", http.StatusForbidden)
-		return
-	}
-
-	// Delete state token (one-time use)
-	if err := redis.DeleteState(stateUUID); err != nil {
-		slog.Error("Failed to delete state from Redis", "error", err)
-	}
-
-	// Exchange authorization code for tokens
-	ctx := oidc.ClientContext(context.Background(), utils.GetInternalHTTPClient())
-	oauth2Config, err := getOAuth2Config()
-	if err != nil {
-		slog.Error("Failed to get OAuth2 config", "error", err)
-		http.Error(w, "Authentication service unavailable", http.StatusServiceUnavailable)
-		return
-	}
-
-	token, err := oauth2Config.Exchange(ctx, r.URL.Query().Get("code"))
-	if err != nil {
-		slog.Error("Failed to exchange code for token", "error", err)
-		http.Error(w, "Authentication failed", http.StatusUnauthorized)
-		return
-	}
-	slog.Info("Successfully exchanged code for tokens")
-
-	// Exchange bff access token for api access token via RFC 8693 Token Exchange
-	apiAccessToken, err := exchangeForAPIToken(ctx, token.AccessToken)
-	if err != nil {
-		slog.Error("Failed to exchange token for API access token", "error", err)
-		http.Error(w, "Authentication failed", http.StatusUnauthorized)
-		return
-	}
-	slog.Info("Successfully exchanged for API access token")
-
-	// Extract and verify ID Token
-	rawIDToken, ok := token.Extra("id_token").(string)
-	if !ok {
-		slog.Error("ID Token not found in token response")
-		http.Error(w, "Authentication failed", http.StatusUnauthorized)
-		return
-	}
-
-	provider, err := oidc.NewProvider(ctx, cfg.OIDCProviderURL)
-	if err != nil {
-		slog.Error("Failed to get OIDC provider", "error", err)
-		http.Error(w, "Authentication failed", http.StatusInternalServerError)
-		return
-	}
-
-	verifier := provider.Verifier(&oidc.Config{ClientID: cfg.OAuth2ClientID})
-	idToken, err := verifier.Verify(ctx, rawIDToken)
-	if err != nil {
-		slog.Error("Failed to verify ID Token", "error", err)
-		http.Error(w, "Invalid ID token", http.StatusUnauthorized)
-		return
-	}
-
-	// Parse claims from ID Token
-	var claims IDTokenClaims
-	if err := idToken.Claims(&claims); err != nil {
-		slog.Error("Failed to parse ID Token claims", "error", err)
-		http.Error(w, "Authentication failed", http.StatusInternalServerError)
-		return
-	}
-
-	slog.Info("ID Token verified", "sub", claims.Sub, "email", claims.Email)
-
+// completeCallback はトークン交換完了後のセッション生成・Cookie 設定・プロビジョニング・リダイレクトを行う。
+// Keycloak との通信を含まないため、ユニットテストで直接検証できる。
+func completeCallback(
+	w http.ResponseWriter,
+	r *http.Request,
+	cfg *setup.Config,
+	claims IDTokenClaims,
+	rawIDToken, apiAccessToken, refreshToken, redirectURL string,
+	provisionFn ProvisionFunc,
+) {
 	// Create session data
 	sessionData := redis.SessionData{
 		UserID:       claims.Sub,
@@ -121,7 +144,7 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		Name:         claims.Name,
 		IDToken:      rawIDToken,
 		AccessToken:  apiAccessToken,
-		RefreshToken: token.RefreshToken,
+		RefreshToken: refreshToken,
 	}
 
 	// Generate session ID and save to Redis
@@ -159,18 +182,13 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	// 注意: プロビジョニング失敗時はセッションが作成されるが users テーブルにレコードが存在しない。
 	// この場合、以降の認証済み API リクエストは get_current_user で 401 になる可能性がある。
 	// ユーザーが再ログインすることでプロビジョニングが再試行される。
-	if err := provisionUser(r.Context(), apiAccessToken, cfg.ProxyTarget); err != nil {
+	if err := provisionFn(r.Context(), apiAccessToken, cfg.ProxyTarget); err != nil {
 		slog.Warn("JIT provisioning failed; session created but user may be missing from DB",
 			"sub", claims.Sub,
 			"error", err,
 		)
 	}
 
-	// Redirect to original URL
-	redirectURL := stateData.RedirectURL.String()
-	if redirectURL == "" {
-		redirectURL = "/"
-	}
 	slog.Info("Redirecting to original URL", "url", redirectURL)
 	http.Redirect(w, r, redirectURL, http.StatusFound)
 }

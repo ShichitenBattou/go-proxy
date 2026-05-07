@@ -13,7 +13,7 @@ func TestCallbackHandler_RejectsInvalidState(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/auth/callback?state=invalid-uuid&code=test", nil)
 	rr := httptest.NewRecorder()
 
-	auth.CallbackHandler(rr, req)
+	auth.NewCallbackHandler(auth.ProvisionUser)(rr, req)
 
 	if rr.Code != http.StatusForbidden {
 		t.Errorf("expected status %d, got %d", http.StatusForbidden, rr.Code)
@@ -31,7 +31,7 @@ func TestCallbackHandler_RejectsNonexistentState(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/auth/callback?state="+validUUID+"&code=test", nil)
 	rr := httptest.NewRecorder()
 
-	auth.CallbackHandler(rr, req)
+	auth.NewCallbackHandler(auth.ProvisionUser)(rr, req)
 
 	if rr.Code != http.StatusForbidden {
 		t.Errorf("expected status %d, got %d", http.StatusForbidden, rr.Code)

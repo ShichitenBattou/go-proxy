@@ -9,6 +9,16 @@ import (
 	"time"
 )
 
+// ProvisionFunc はユーザープロビジョニングを担う関数の型。
+// テスト時にモックへ差し替えることで CallbackHandler の挙動を検証できる。
+type ProvisionFunc func(ctx context.Context, apiAccessToken, targetHost string) error
+
+// ProvisionUser は本番用のプロビジョニング関数。
+// main.go から NewCallbackHandler へ渡して使用する。
+func ProvisionUser(ctx context.Context, apiAccessToken, targetHost string) error {
+	return provisionUser(ctx, apiAccessToken, targetHost)
+}
+
 // provisionHTTPClient は JIT プロビジョニング専用の HTTP クライアント。
 // API は内部ネットワーク上の plain HTTP のため、カスタム TLS は不要。
 // タイムアウトを設定し、API の無応答による goroutine ハングを防ぐ。
