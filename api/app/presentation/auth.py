@@ -145,7 +145,9 @@ async def get_current_sub(
             headers={"WWW-Authenticate": "Bearer"},
         )
     except jwt.InvalidAudienceError:
-        logger.warning(f"Invalid audience (expected: {_audience})")
+        logger.warning(
+            f"Invalid audience (expected: {_audience}, got: {jose_jwt.get_unverified_claims(token).get('aud')})"
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token audience",
