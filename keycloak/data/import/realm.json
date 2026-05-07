@@ -321,7 +321,8 @@
         "oauth2.device.authorization.grant.enabled": "false",
         "display.on.consent.screen": "false",
         "backchannel.logout.revoke.offline.tokens": "false",
-        "dpop.bound.access.tokens": "false"
+        "dpop.bound.access.tokens": "false",
+        "standard.token.exchange.enabled": "true"
       },
       "authenticationFlowBindingOverrides": {},
       "fullScopeAllowed": true,
@@ -344,10 +345,47 @@
       ],
       "authorizationSettings": {
         "allowRemoteResourceManagement": true,
-        "policyEnforcementMode": "ENFORCING",
-        "resources": [],
-        "policies": [],
-        "scopes": [],
+        "policyEnforcementMode": "DISABLED",
+        "resources": [
+          {
+            "name": "token-exchange",
+            "type": "urn:token-exchange:resources:default",
+            "ownerManagedAccess": false,
+            "attributes": {},
+            "uris": [],
+            "scopes": [
+              {
+                "name": "token-exchange"
+              }
+            ]
+          }
+        ],
+        "policies": [
+          {
+            "name": "bff-token-exchange-policy",
+            "type": "client",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "clients": "[\"bff\"]"
+            }
+          },
+          {
+            "name": "token-exchange.permission.client.api",
+            "type": "scope",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "scopes": "[\"token-exchange\"]",
+              "applyPolicies": "[\"bff-token-exchange-policy\"]"
+            }
+          }
+        ],
+        "scopes": [
+          {
+            "name": "token-exchange"
+          }
+        ],
         "decisionStrategy": "UNANIMOUS"
       }
     },
@@ -415,7 +453,20 @@
         "organization",
         "microprofile-jwt"
       ],
-      "secret": "BMGMW9o5Pxg1Zmb8mnUiixuQO3wTWSyA"
+      "secret": "BMGMW9o5Pxg1Zmb8mnUiixuQO3wTWSyA",
+      "protocolMappers": [
+        {
+          "name": "api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
     },
     {
       "id": "1a1c684e-1c7e-4056-9df5-78daf9ac270e",
