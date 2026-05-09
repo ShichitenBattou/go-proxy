@@ -1,7 +1,7 @@
 # ADR-0009: セッションIDローテーション戦略の見直し
 
 ## Status
-提案中（Proposed） - 2026-04-19
+承認済み（Accepted） - 2026-04-19
 
 ## Context
 

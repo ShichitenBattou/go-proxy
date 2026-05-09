@@ -1,7 +1,7 @@
 # ADR-0006: LoginHandler のリダイレクトURL パラメータ化
 
 ## Status
-提案中（Proposed） - 2026-04-16
+承認済み（Accepted） - 2026-04-16
 
 ## Context
 

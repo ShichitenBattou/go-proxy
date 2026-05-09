@@ -1,7 +1,7 @@
 # ADR-0007: Proxy Handler での Authorization ヘッダー付与
 
 ## Status
-提案中（Proposed） - 2026-04-17
+承認済み（Accepted） - 2026-04-17
 
 ## Context
 

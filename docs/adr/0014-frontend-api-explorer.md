@@ -1,7 +1,7 @@
 # ADR-0014: フロントエンドへの API Explorer 追加
 
 ## Status
-提案中（Proposed） - 2026-04-30
+承認済み（Accepted） - 2026-04-30
 
 ## Context
 

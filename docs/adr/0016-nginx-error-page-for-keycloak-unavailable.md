@@ -1,7 +1,7 @@
 # ADR-0016: Keycloak 未起動時の NGINX エラーページ表示
 
 ## Status
-提案中（Proposed） - 2026-05-07
+承認済み（Accepted） - 2026-05-07
 
 ## Context
 

@@ -1,7 +1,7 @@
 # ADR-0012: API ログの JSON 出力への完全統一
 
 ## Status
-提案中（Proposed） - 2026-04-29
+承認済み（Accepted） - 2026-04-29
 
 ## Context
 

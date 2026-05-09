@@ -1,7 +1,7 @@
 # ADR-0015: Keycloak Token Exchange による API アクセストークン取得
 
 ## Status
-提案中（Proposed） - 2026-05-01
+承認済み（Accepted） - 2026-05-01
 
 ## Context
 

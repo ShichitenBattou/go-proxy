@@ -1,7 +1,7 @@
 # ADR-0017: JIT ユーザープロビジョニングと JWT からの keycloak_sub 取得
 
 ## Status
-提案中（Proposed） - 2026-05-07
+承認済み（Accepted） - 2026-05-07
 
 ## Context
 
