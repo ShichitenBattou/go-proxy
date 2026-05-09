@@ -277,3 +277,111 @@ func TestProxyHandler_ConcurrentRequests(t *testing.T) {
 		t.Error("expected session to remain in Redis after concurrent requests, got error:", err)
 	}
 }
+
+func TestProxyHandler_Reprovisioning_Success(t *testing.T) {
+	provisionCalled := false
+	var receivedAuthHeader string
+
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/users" {
+			provisionCalled = true
+			w.WriteHeader(http.StatusCreated)
+			return
+		}
+		receivedAuthHeader = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer backend.Close()
+
+	sessionId := "test-reprovision-success-" + t.Name()
+	sessionData := redis.SessionData{
+		UserID:      "test-user",
+		Email:       "reprovision@example.com",
+		Name:        "Reprovision Test",
+		AccessToken: "test-access-token",
+		Provisioned: false, // 未プロビジョニング状態
+	}
+	if err := redis.SetSession(sessionId, sessionData); err != nil {
+		t.Fatalf("failed to set up test session: %v", err)
+	}
+	defer redis.DeleteSession(sessionId)
+
+	handler := proxy.NewHandler(backend.Listener.Addr().String())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/users", nil)
+	req.AddCookie(&http.Cookie{Name: "Session-Id", Value: sessionId})
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rr.Code)
+	}
+	if !provisionCalled {
+		t.Error("expected POST /users to be called for re-provisioning, but it was not")
+	}
+	if receivedAuthHeader != "Bearer test-access-token" {
+		t.Errorf("expected Authorization header 'Bearer test-access-token', got '%s'", receivedAuthHeader)
+	}
+
+	// セッションの Provisioned フラグが true に更新されていることを確認
+	updated, err := redis.GetSessionValue(sessionId)
+	if err != nil {
+		t.Fatalf("failed to get updated session: %v", err)
+	}
+	if !updated.Provisioned {
+		t.Error("expected session Provisioned flag to be updated to true after successful re-provisioning")
+	}
+}
+
+func TestProxyHandler_Reprovisioning_Failure(t *testing.T) {
+	provisionCalled := false
+
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/users" {
+			provisionCalled = true
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer backend.Close()
+
+	sessionId := "test-reprovision-failure-" + t.Name()
+	sessionData := redis.SessionData{
+		UserID:      "test-user",
+		Email:       "reprovision@example.com",
+		Name:        "Reprovision Test",
+		AccessToken: "test-access-token",
+		Provisioned: false,
+	}
+	if err := redis.SetSession(sessionId, sessionData); err != nil {
+		t.Fatalf("failed to set up test session: %v", err)
+	}
+	defer redis.DeleteSession(sessionId)
+
+	handler := proxy.NewHandler(backend.Listener.Addr().String())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/users", nil)
+	req.AddCookie(&http.Cookie{Name: "Session-Id", Value: sessionId})
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	// プロビジョニング失敗でもリクエストは転送される（ソフトフェイル）
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200 even when re-provisioning fails, got %d", rr.Code)
+	}
+	if !provisionCalled {
+		t.Error("expected POST /users to be called for re-provisioning, but it was not")
+	}
+
+	// Provisioned フラグは false のまま
+	updated, err := redis.GetSessionValue(sessionId)
+	if err != nil {
+		t.Fatalf("failed to get session: %v", err)
+	}
+	if updated.Provisioned {
+		t.Error("expected session Provisioned flag to remain false after failed re-provisioning")
+	}
+}

@@ -153,6 +153,19 @@ func completeCallback(
 	provisionFn ProvisionFunc,
 ) {
 	claims := tokens.Claims
+
+	// JIT プロビジョニング: API 側にユーザーレコードを作成する
+	// エラー時はログのみ（ソフトフェイル）。API の一時停止でログイン自体を失敗させない。
+	// 失敗時は Provisioned=false でセッションを保存し、次回リクエスト時に proxy 層で再試行する。
+	provisioned := true
+	if err := provisionFn(r.Context(), tokens.APIAccessToken, cfg.ProxyTarget); err != nil {
+		slog.Warn("JIT provisioning failed; will retry on next API request",
+			"sub", claims.Sub,
+			"error", err,
+		)
+		provisioned = false
+	}
+
 	// Create session data
 	sessionData := redis.SessionData{
 		UserID:       claims.Sub,
@@ -161,6 +174,7 @@ func completeCallback(
 		IDToken:      tokens.RawIDToken,
 		AccessToken:  tokens.APIAccessToken,
 		RefreshToken: tokens.RefreshToken,
+		Provisioned:  provisioned,
 	}
 
 	// Generate session ID and save to Redis
@@ -191,19 +205,7 @@ func completeCallback(
 		SameSite: sameSite,
 	})
 
-	slog.Info("Session created", "sessionId", sessionID, "userId", claims.Sub)
-
-	// JIT プロビジョニング: API 側にユーザーレコードを作成する
-	// エラー時はログのみ（ソフトフェイル）。API の一時停止でログイン自体を失敗させない。
-	// 注意: プロビジョニング失敗時はセッションが作成されるが users テーブルにレコードが存在しない。
-	// この場合、以降の認証済み API リクエストは get_current_user で 401 になる可能性がある。
-	// ユーザーが再ログインすることでプロビジョニングが再試行される。
-	if err := provisionFn(r.Context(), tokens.APIAccessToken, cfg.ProxyTarget); err != nil {
-		slog.Warn("JIT provisioning failed; session created but user may be missing from DB",
-			"sub", claims.Sub,
-			"error", err,
-		)
-	}
+	slog.Info("Session created", "sessionId", sessionID, "userId", claims.Sub, "provisioned", provisioned)
 
 	slog.Info("Redirecting to original URL", "url", tokens.RedirectURL)
 	http.Redirect(w, r, tokens.RedirectURL, http.StatusFound)

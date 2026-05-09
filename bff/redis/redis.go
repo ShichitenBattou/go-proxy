@@ -90,6 +90,12 @@ func DeleteSession(sessionId string) error {
 	return nil
 }
 
+// UpdateSession は既存セッションの内容を上書きする。
+// TTL は SESSION_TTL で再設定される。
+func UpdateSession(sessionId string, sessionData SessionData) error {
+	return SetSession(sessionId, sessionData)
+}
+
 // SessionData represents the session data stored in Redis.
 // WARNING: Storing tokens in Redis without TLS/ACL has security risks.
 // - Risk: If Redis is compromised, attackers can impersonate users
@@ -102,6 +108,7 @@ type SessionData struct {
 	IDToken      string `json:"id_token,omitempty"`      // OIDC ID token (for logout)
 	AccessToken  string `json:"access_token,omitempty"`  // OAuth2 access token
 	RefreshToken string `json:"refresh_token,omitempty"` // OAuth2 refresh token
+	Provisioned  bool   `json:"provisioned"`             // JIT プロビジョニング完了フラグ
 }
 
 type StateData struct {

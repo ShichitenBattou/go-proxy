@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"bff/auth"
 	"bff/redis"
 	"bff/setup"
 )
@@ -34,6 +35,19 @@ func NewHandler(forwardHost string) http.Handler {
 			slog.Info("Session not found in Redis", "sessionId", sessionID.Value)
 		} else {
 			slog.Info("Session found in Redis", "sessionId", sessionID.Value)
+
+			// 未プロビジョニングの場合、転送前に再試行する
+			if !sessionData.Provisioned {
+				slog.Info("Session not provisioned, attempting re-provisioning", "sessionId", sessionID.Value)
+				if err := auth.ProvisionUser(request.In.Context(), sessionData.AccessToken, forwardHost); err != nil {
+					slog.Warn("Re-provisioning failed, forwarding request anyway", "error", err)
+				} else {
+					sessionData.Provisioned = true
+					if err := redis.UpdateSession(sessionID.Value, sessionData); err != nil {
+						slog.Warn("Failed to update session provisioned flag", "error", err)
+					}
+				}
+			}
 
 			// Add Authorization header with AccessToken
 			if sessionData.AccessToken != "" {
