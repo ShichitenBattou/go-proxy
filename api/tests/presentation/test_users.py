@@ -2,7 +2,7 @@ from uuid import uuid4
 
 from httpx import AsyncClient
 
-from tests.presentation.conftest import InMemoryUserRepository
+from app.domain.entities.user import User
 
 
 class TestCreateUser:
@@ -32,16 +32,12 @@ class TestCreateUser:
 
 class TestGetUser:
     async def test_get_user_returns_200(
-        self, client: AsyncClient, user_repo: InMemoryUserRepository
+        self, client: AsyncClient, test_user: User
     ) -> None:
-        # Create a user first, then retrieve it.
-        create_resp = await client.post("/users")
-        user_id = create_resp.json()["id"]
-
-        response = await client.get(f"/users/{user_id}")
+        response = await client.get(f"/users/{test_user.id}")
 
         assert response.status_code == 200
-        assert response.json()["id"] == user_id
+        assert response.json()["id"] == str(test_user.id)
 
     async def test_get_user_not_found_returns_404(self, client: AsyncClient) -> None:
         missing_id = str(uuid4())
@@ -59,13 +55,10 @@ class TestGetUser:
 
 
 class TestDeactivateUser:
-    async def test_deactivate_user_returns_204(self, client: AsyncClient) -> None:
-        # Create a user first, then deactivate it.
-        create_resp = await client.post("/users")
-        assert create_resp.status_code == 201
-        user_id = create_resp.json()["id"]
-
-        response = await client.delete(f"/users/{user_id}")
+    async def test_deactivate_user_returns_204(
+        self, client: AsyncClient, test_user: User
+    ) -> None:
+        response = await client.delete(f"/users/{test_user.id}")
 
         assert response.status_code == 204
 

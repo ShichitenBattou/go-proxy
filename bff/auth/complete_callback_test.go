@@ -43,7 +43,13 @@ func TestCompleteCallback_SoftFail_SessionCookieStillSet(t *testing.T) {
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodGet, "/auth/callback", nil)
 
-	completeCallback(w, r, testCfg(), testClaims(), "raw-id-token", "api-token", "refresh-token", "/dashboard", failingProvision)
+	completeCallback(w, r, testCfg(), callbackTokens{
+		Claims:         testClaims(),
+		RawIDToken:     "raw-id-token",
+		APIAccessToken: "api-token",
+		RefreshToken:   "refresh-token",
+		RedirectURL:    "/dashboard",
+	}, failingProvision)
 
 	result := w.Result()
 
@@ -54,6 +60,8 @@ func TestCompleteCallback_SoftFail_SessionCookieStillSet(t *testing.T) {
 	if sessionCookie.Value == "" {
 		t.Error("session cookie value must not be empty")
 	}
+	t.Cleanup(func() { redis.DeleteSession(sessionCookie.Value) })
+
 	if result.StatusCode != http.StatusFound {
 		t.Errorf("expected redirect (302) even when provisioning fails, got %d", result.StatusCode)
 	}
@@ -77,7 +85,19 @@ func TestCompleteCallback_Success_ProvisionCalledWithCorrectArgs(t *testing.T) {
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodGet, "/auth/callback", nil)
 
-	completeCallback(w, r, testCfg(), testClaims(), "raw-id-token", "api-token", "refresh-token", "/", trackingProvision)
+	completeCallback(w, r, testCfg(), callbackTokens{
+		Claims:         testClaims(),
+		RawIDToken:     "raw-id-token",
+		APIAccessToken: "api-token",
+		RefreshToken:   "refresh-token",
+		RedirectURL:    "/",
+	}, trackingProvision)
+
+	result := w.Result()
+	sessionCookie := findCookie(result.Cookies(), testCfg().SessionCookieName)
+	if sessionCookie != nil {
+		t.Cleanup(func() { redis.DeleteSession(sessionCookie.Value) })
+	}
 
 	if !provisionCalled {
 		t.Fatal("provisionFn must be called")
@@ -98,13 +118,20 @@ func TestCompleteCallback_Success_SessionContainsUserData(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "/auth/callback", nil)
 	claims := IDTokenClaims{Sub: "sub-abc", Email: "alice@example.com", Name: "Alice"}
 
-	completeCallback(w, r, testCfg(), claims, "id-tok", "access-tok", "refresh-tok", "/", noop)
+	completeCallback(w, r, testCfg(), callbackTokens{
+		Claims:         claims,
+		RawIDToken:     "id-tok",
+		APIAccessToken: "access-tok",
+		RefreshToken:   "refresh-tok",
+		RedirectURL:    "/",
+	}, noop)
 
 	result := w.Result()
 	sessionCookie := findCookie(result.Cookies(), testCfg().SessionCookieName)
 	if sessionCookie == nil {
 		t.Fatal("session cookie not found")
 	}
+	t.Cleanup(func() { redis.DeleteSession(sessionCookie.Value) })
 
 	data, err := redis.GetSessionValue(sessionCookie.Value)
 	if err != nil {
@@ -131,9 +158,20 @@ func TestCompleteCallback_Success_RedirectsToGivenURL(t *testing.T) {
 			w := httptest.NewRecorder()
 			r := httptest.NewRequest(http.MethodGet, "/auth/callback", nil)
 
-			completeCallback(w, r, testCfg(), testClaims(), "id-tok", "access-tok", "refresh-tok", redirectURL, noop)
+			completeCallback(w, r, testCfg(), callbackTokens{
+				Claims:         testClaims(),
+				RawIDToken:     "id-tok",
+				APIAccessToken: "access-tok",
+				RefreshToken:   "refresh-tok",
+				RedirectURL:    redirectURL,
+			}, noop)
 
 			result := w.Result()
+			sessionCookie := findCookie(result.Cookies(), testCfg().SessionCookieName)
+			if sessionCookie != nil {
+				t.Cleanup(func() { redis.DeleteSession(sessionCookie.Value) })
+			}
+
 			if result.StatusCode != http.StatusFound {
 				t.Errorf("expected 302, got %d", result.StatusCode)
 			}

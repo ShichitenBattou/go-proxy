@@ -123,8 +123,24 @@ func NewCallbackHandler(provisionFn ProvisionFunc) http.HandlerFunc {
 			redirectURL = "/"
 		}
 
-		completeCallback(w, r, cfg, claims, rawIDToken, apiAccessToken, token.RefreshToken, redirectURL, provisionFn)
+		completeCallback(w, r, cfg, callbackTokens{
+			Claims:         claims,
+			RawIDToken:     rawIDToken,
+			APIAccessToken: apiAccessToken,
+			RefreshToken:   token.RefreshToken,
+			RedirectURL:    redirectURL,
+		}, provisionFn)
 	}
+}
+
+// callbackTokens はトークン交換完了後に completeCallback へ渡すデータをまとめた値オブジェクト。
+// completeCallback のシグネチャを簡潔に保つために使用する。
+type callbackTokens struct {
+	Claims         IDTokenClaims
+	RawIDToken     string
+	APIAccessToken string
+	RefreshToken   string
+	RedirectURL    string
 }
 
 // completeCallback はトークン交換完了後のセッション生成・Cookie 設定・プロビジョニング・リダイレクトを行う。
@@ -133,18 +149,18 @@ func completeCallback(
 	w http.ResponseWriter,
 	r *http.Request,
 	cfg *setup.Config,
-	claims IDTokenClaims,
-	rawIDToken, apiAccessToken, refreshToken, redirectURL string,
+	tokens callbackTokens,
 	provisionFn ProvisionFunc,
 ) {
+	claims := tokens.Claims
 	// Create session data
 	sessionData := redis.SessionData{
 		UserID:       claims.Sub,
 		Email:        claims.Email,
 		Name:         claims.Name,
-		IDToken:      rawIDToken,
-		AccessToken:  apiAccessToken,
-		RefreshToken: refreshToken,
+		IDToken:      tokens.RawIDToken,
+		AccessToken:  tokens.APIAccessToken,
+		RefreshToken: tokens.RefreshToken,
 	}
 
 	// Generate session ID and save to Redis
@@ -182,13 +198,13 @@ func completeCallback(
 	// 注意: プロビジョニング失敗時はセッションが作成されるが users テーブルにレコードが存在しない。
 	// この場合、以降の認証済み API リクエストは get_current_user で 401 になる可能性がある。
 	// ユーザーが再ログインすることでプロビジョニングが再試行される。
-	if err := provisionFn(r.Context(), apiAccessToken, cfg.ProxyTarget); err != nil {
+	if err := provisionFn(r.Context(), tokens.APIAccessToken, cfg.ProxyTarget); err != nil {
 		slog.Warn("JIT provisioning failed; session created but user may be missing from DB",
 			"sub", claims.Sub,
 			"error", err,
 		)
 	}
 
-	slog.Info("Redirecting to original URL", "url", redirectURL)
-	http.Redirect(w, r, redirectURL, http.StatusFound)
+	slog.Info("Redirecting to original URL", "url", tokens.RedirectURL)
+	http.Redirect(w, r, tokens.RedirectURL, http.StatusFound)
 }
