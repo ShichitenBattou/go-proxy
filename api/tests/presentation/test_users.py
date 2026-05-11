@@ -75,3 +75,19 @@ class TestDeactivateUser:
         response = await unauthenticated_client.delete(f"/users/{some_id}")
 
         assert response.status_code == 401
+
+
+class TestInactiveUserRestriction:
+    async def test_get_user_inactive_returns_403(
+        self, inactive_client: AsyncClient, inactive_user: User
+    ) -> None:
+        response = await inactive_client.get(f"/users/{inactive_user.id}")
+
+        assert response.status_code == 403
+
+    async def test_deactivate_user_inactive_returns_403(
+        self, inactive_client: AsyncClient, inactive_user: User
+    ) -> None:
+        response = await inactive_client.delete(f"/users/{inactive_user.id}")
+
+        assert response.status_code == 403

@@ -185,3 +185,28 @@ class TestGetPost:
         response = await unauthenticated_client.get(f"/posts/{some_id}")
 
         assert response.status_code == 401
+
+
+class TestInactiveUserRestriction:
+    async def test_create_post_inactive_returns_403(
+        self, inactive_client: AsyncClient
+    ) -> None:
+        response = await inactive_client.post(
+            "/posts", json={"title": "t", "body": "b", "tags": []}
+        )
+
+        assert response.status_code == 403
+
+    async def test_list_posts_inactive_returns_403(
+        self, inactive_client: AsyncClient
+    ) -> None:
+        response = await inactive_client.get("/posts")
+
+        assert response.status_code == 403
+
+    async def test_get_post_inactive_returns_403(
+        self, inactive_client: AsyncClient
+    ) -> None:
+        response = await inactive_client.get(f"/posts/{uuid4()}")
+
+        assert response.status_code == 403

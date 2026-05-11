@@ -72,6 +72,7 @@ async def get_current_user(
 
     Raises:
         HTTPException: ユーザーが DB に登録されていない場合（401）
+        HTTPException: ユーザーが非アクティブの場合（403）
     """
     user = await user_repo.get_by_keycloak_sub(keycloak_sub)
     if not user:
@@ -79,6 +80,11 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not registered. Please register at POST /users/ first.",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Inactive users cannot perform resource operations.",
         )
     return user
 

@@ -235,3 +235,36 @@ async def fresh_client(
         yield ac
 
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def inactive_client(
+    user_repo: InMemoryUserRepository,
+    post_repo: InMemoryPostRepository,
+    inactive_user: User,
+) -> AsyncGenerator[AsyncClient, None]:
+    """AsyncClient authenticated as an inactive user.
+
+    get_current_user is NOT overridden so the real implementation runs and
+    returns 403 for any CurrentUser-dependent endpoint.
+    """
+    app = _make_test_app()
+
+    app.dependency_overrides[get_user_repo] = lambda: user_repo
+    app.dependency_overrides[get_post_repo] = lambda: post_repo
+    app.dependency_overrides[get_current_sub] = lambda: inactive_user.keycloak_sub
+    app.dependency_overrides[get_create_user_interactor] = lambda: CreateUserInteractor(user_repo)
+    app.dependency_overrides[get_get_user_interactor] = lambda: GetUserInteractor(user_repo)
+    app.dependency_overrides[get_deactivate_user_interactor] = lambda: DeactivateUserInteractor(
+        user_repo
+    )
+    app.dependency_overrides[get_create_post_interactor] = lambda: CreatePostInteractor(
+        post_repo, user_repo
+    )
+    app.dependency_overrides[get_get_post_interactor] = lambda: GetPostInteractor(post_repo)
+    app.dependency_overrides[get_list_posts_interactor] = lambda: ListPostsInteractor(post_repo)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
+
+    app.dependency_overrides.clear()
