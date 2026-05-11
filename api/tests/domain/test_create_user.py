@@ -21,21 +21,23 @@ class TestCreateUserInteractor:
         user_repo.get_by_keycloak_sub.return_value = None
         interactor = CreateUserInteractor(user_repo)
 
-        result = await interactor.execute(CreateUserCommand(keycloak_sub="new-sub"))
+        result, created = await interactor.execute(CreateUserCommand(keycloak_sub="new-sub"))
 
         assert isinstance(result, User)
         assert result.keycloak_sub == "new-sub"
         assert result.role == UserRole.USER
         assert result.is_active is True
+        assert created is True
 
     async def test_execute_idempotent(self, user_repo: AsyncMock) -> None:
         existing = make_existing_user("existing-sub")
         user_repo.get_by_keycloak_sub.return_value = existing
         interactor = CreateUserInteractor(user_repo)
 
-        result = await interactor.execute(CreateUserCommand(keycloak_sub="existing-sub"))
+        result, created = await interactor.execute(CreateUserCommand(keycloak_sub="existing-sub"))
 
         assert result is existing
+        assert created is False
         user_repo.add.assert_not_awaited()
 
     async def test_execute_calls_user_repository_add_for_new_user(

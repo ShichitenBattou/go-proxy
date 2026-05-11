@@ -201,3 +201,37 @@ async def unauthenticated_client(
         yield ac
 
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def fresh_client(
+    user_repo: InMemoryUserRepository,
+    post_repo: InMemoryPostRepository,
+) -> AsyncGenerator[AsyncClient, None]:
+    """AsyncClient authenticated as 'sub-test-user' with an empty user repository.
+
+    Use this fixture for POST /users tests that need to verify 201 on first call.
+    The standard `client` fixture pre-populates the user, so POST /users always
+    returns 200. This fixture starts with no users, allowing the first call to
+    return 201 and the second to return 200.
+    """
+    app = _make_test_app()
+
+    app.dependency_overrides[get_user_repo] = lambda: user_repo
+    app.dependency_overrides[get_post_repo] = lambda: post_repo
+    app.dependency_overrides[get_current_sub] = lambda: "sub-test-user"
+    app.dependency_overrides[get_create_user_interactor] = lambda: CreateUserInteractor(user_repo)
+    app.dependency_overrides[get_get_user_interactor] = lambda: GetUserInteractor(user_repo)
+    app.dependency_overrides[get_deactivate_user_interactor] = lambda: DeactivateUserInteractor(
+        user_repo
+    )
+    app.dependency_overrides[get_create_post_interactor] = lambda: CreatePostInteractor(
+        post_repo, user_repo
+    )
+    app.dependency_overrides[get_get_post_interactor] = lambda: GetPostInteractor(post_repo)
+    app.dependency_overrides[get_list_posts_interactor] = lambda: ListPostsInteractor(post_repo)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
+
+    app.dependency_overrides.clear()

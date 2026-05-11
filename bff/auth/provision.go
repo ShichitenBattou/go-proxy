@@ -43,7 +43,7 @@ func ProvisionUser(ctx context.Context, apiAccessToken, targetHost string) error
 	// サイズ上限を設けて大きなボディによるメモリ圧迫を防ぐ。
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 
-	if resp.StatusCode != http.StatusCreated {
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("provision request returned unexpected status %d: %s", resp.StatusCode, string(body))
 	}
 

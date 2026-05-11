@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 
 from app.application.commands.create_user import CreateUserCommand, CreateUserInteractor
@@ -29,10 +29,13 @@ class UserResponse(BaseModel):
 
 @router.post("", status_code=201, response_model=UserResponse)
 async def create_user(
+    response: Response,
     keycloak_sub: CurrentSub,
     interactor: Annotated[CreateUserInteractor, Depends(get_create_user_interactor)],
 ) -> UserResponse:
-    user = await interactor.execute(CreateUserCommand(keycloak_sub=keycloak_sub))
+    user, created = await interactor.execute(CreateUserCommand(keycloak_sub=keycloak_sub))
+    if not created:
+        response.status_code = 200
     return UserResponse(
         id=user.id,
         keycloak_sub=user.keycloak_sub,

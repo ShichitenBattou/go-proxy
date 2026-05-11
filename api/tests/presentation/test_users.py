@@ -6,8 +6,8 @@ from app.domain.entities.user import User
 
 
 class TestCreateUser:
-    async def test_create_user_returns_201(self, client: AsyncClient) -> None:
-        response = await client.post("/users")
+    async def test_create_user_returns_201(self, fresh_client: AsyncClient) -> None:
+        response = await fresh_client.post("/users")
 
         assert response.status_code == 201
         body = response.json()
@@ -16,12 +16,12 @@ class TestCreateUser:
         assert body["role"] == "user"
         assert body["is_active"] is True
 
-    async def test_create_user_idempotent_returns_201(self, client: AsyncClient) -> None:
-        first = await client.post("/users")
-        second = await client.post("/users")
+    async def test_create_user_idempotent(self, fresh_client: AsyncClient) -> None:
+        first = await fresh_client.post("/users")
+        second = await fresh_client.post("/users")
 
         assert first.status_code == 201
-        assert second.status_code == 201
+        assert second.status_code == 200
         assert first.json()["id"] == second.json()["id"]
 
     async def test_create_user_requires_auth(self, unauthenticated_client: AsyncClient) -> None:

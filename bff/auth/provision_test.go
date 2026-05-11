@@ -67,8 +67,21 @@ func TestProvisionUser_APIError(t *testing.T) {
 	}
 }
 
-func TestProvisionUser_Non201Response(t *testing.T) {
-	cases := []int{http.StatusOK, http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound}
+func TestProvisionUser_IdempotentOn200(t *testing.T) {
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer backend.Close()
+
+	err := ProvisionUser(context.Background(), "token", backend.Listener.Addr().String())
+
+	if err != nil {
+		t.Fatalf("expected no error for status 200 (existing user), got: %v", err)
+	}
+}
+
+func TestProvisionUser_ErrorOnUnexpectedStatus(t *testing.T) {
+	cases := []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound}
 
 	for _, statusCode := range cases {
 		t.Run(http.StatusText(statusCode), func(t *testing.T) {
