@@ -125,14 +125,6 @@ BFF は **Vertical Slice Architecture** で構成されている。機能・ユ�
 
 対処が必要な課題を優先度順に記録する。新機能開発の前に中優先度以上を解消すること。
 
-### POST /users テストに旧インターフェースの呼び出しが残存（中）
-
-`api/tests/presentation/test_users.py` の `TestGetUser` 内で `POST /users` を呼ぶ際に `json={"keycloak_sub": "..."}` を渡しているケースが残っている。現在の実装はリクエストボディを受け取らないため動作はするが、テストが実装と乖離している。`test_users.py` を修正する際は該当箇所のボディ引数を削除すること。
-
-### POST /users の冪等性とステータスコードの不整合（中）
-
-既存ユーザーに対する `POST /users` も常に `201 Created` を返している。HTTP セマンティクスとしては既存リソースの返却に `200 OK` が適切だが、`bff/auth/provision.go` 側は `201` のみを成功とみなすよう実装している。API 側のステータスコードを変更する際は BFF 側も合わせて修正すること。
-
 ### Redis へのトークン平文保存（中）
 
 `bff/redis/redis.go` の `SessionData` に `AccessToken` / `RefreshToken` が平文で保存されている。Redis が侵害された場合、全ユーザーのトークンが漏洩しなりすましが可能になる。本番投入前に Redis の TLS 有効化・ACL 設定・ネットワーク分離を必ず実施すること（`bff/redis/redis.go` のコメントも参照）。
