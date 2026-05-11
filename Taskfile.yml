@@ -76,7 +76,7 @@ tasks:
     cmds:
       - cmd: echo "Starting the application..."
       - task: migrate
-      - cmd: docker compose --env-file .env up -d
+      - cmd: docker compose --env-file .env up -d --build
       - cmd: echo "Application is running at http://localhost"
       - task: wait_keycloak
 
