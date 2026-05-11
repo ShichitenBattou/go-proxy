@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__serena__check_onboarding_performed",
+      "mcp__serena__list_memories",
+      "mcp__serena__onboarding",
+      "mcp__serena__list_dir",
+      "mcp__ide__executeCode",
+      "mcp__serena__get_symbols_overview",
+      "mcp__serena__find_symbol",
+      "mcp__serena__replace_symbol_body",
+      "mcp__serena__replace_content",
+      "mcp__serena__initial_instructions",
+      "mcp__serena__activate_project",
+      "mcp__serena__insert_after_symbol",
+      "Bash(grep:*)",
+      "Bash(python3:*)",
+      "Bash(uv run:*)",
+      "Bash(task ci:*)",
+      "Bash(find .:*)",
+      "Bash(go build:*)",
+      "Bash(go test:*)",
+      "Bash(grep:*)",
+      "Bash(git add:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(cd:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "serena"
+  ],
+  "enabledPlugins": {
+    "document-skills@anthropic-agent-skills": true
+  }
+}

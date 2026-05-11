@@ -1,6 +1,8 @@
 .env
 bff/_keys
 
+.claude/settings.local.json
+
 __pycache__
 .venv
 
