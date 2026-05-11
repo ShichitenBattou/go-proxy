@@ -138,10 +138,9 @@ func NewHandler(forwardHost string) http.Handler {
 
 		newSessionData, err := auth.RefreshAPIToken(r.Context(), sessionData)
 		if err != nil {
-			slog.Warn("Token refresh failed, clearing session", "error", err)
-			if delErr := redis.DeleteSession(sessionCookie.Value); delErr != nil {
-				slog.Error("Failed to delete session after refresh failure", "error", delErr)
-			}
+			// セッションは削除しない（Keycloak の一時的な障害や、認可エラー等の可能性があるため）
+			// TTL による自然消滅に任せる
+			slog.Warn("Token refresh failed, returning original 401", "error", err)
 			flushRecorder(w, recorder)
 			return
 		}

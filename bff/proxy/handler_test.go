@@ -467,10 +467,10 @@ func TestProxyHandler_TokenRefresh_InvalidRefreshToken_ClearsSession(t *testing.
 		t.Errorf("expected 401 when refresh fails, got %d", rr.Code)
 	}
 
-	// セッションは削除される
+	// セッションは削除しない（一時的な障害の可能性があるため TTL に任せる）
 	_, err := redis.GetSessionValue(sessionId)
-	if err == nil {
-		t.Error("expected session to be deleted after refresh failure")
+	if err != nil {
+		t.Error("expected session to remain after refresh failure (let TTL handle cleanup)")
 	}
 }
 
