@@ -1,10 +1,13 @@
 package proxy
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"net/http/httputil"
 	"path"
 	"strings"
@@ -92,6 +95,77 @@ func NewHandler(forwardHost string) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		slog.Info("Received API request", "url", r.URL.String(), "requestedHost", r.Host, "ip", r.RemoteAddr)
+
+		// リクエストボディを一時バッファに退避する（401 時のリトライで再送するため）
+		var bodyBytes []byte
+		if r.Body != nil {
+			var err error
+			bodyBytes, err = io.ReadAll(r.Body)
+			if err != nil {
+				slog.Error("Failed to read request body", "error", err)
+				http.Error(w, "Bad Request", http.StatusBadRequest)
+				return
+			}
+			r.Body.Close()
+			r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		}
+
+		// 1 回目のプロキシ試行（レスポンスを recorder に受けて 401 を検出する）
+		recorder := httptest.NewRecorder()
+		rp.ServeHTTP(recorder, r)
+
+		if recorder.Code != http.StatusUnauthorized {
+			flushRecorder(w, recorder)
+			return
+		}
+
+		// API が 401 を返した場合、トークンリフレッシュを試みる（ADR-0020）
+		slog.Info("API returned 401, attempting token refresh", "url", r.URL.String())
+
+		sessionCookie, err := r.Cookie(cfg.SessionCookieName)
+		if err != nil {
+			slog.Warn("No session cookie for token refresh, returning 401")
+			flushRecorder(w, recorder)
+			return
+		}
+
+		sessionData, err := redis.GetSessionValue(sessionCookie.Value)
+		if err != nil || sessionData.RefreshToken == "" {
+			slog.Warn("Session not found or no refresh token available", "error", err)
+			flushRecorder(w, recorder)
+			return
+		}
+
+		newSessionData, err := auth.RefreshAPIToken(r.Context(), sessionData)
+		if err != nil {
+			slog.Warn("Token refresh failed, clearing session", "error", err)
+			if delErr := redis.DeleteSession(sessionCookie.Value); delErr != nil {
+				slog.Error("Failed to delete session after refresh failure", "error", delErr)
+			}
+			flushRecorder(w, recorder)
+			return
+		}
+
+		if err := redis.UpdateSession(sessionCookie.Value, newSessionData); err != nil {
+			slog.Error("Failed to update session after token refresh", "error", err)
+			flushRecorder(w, recorder)
+			return
+		}
+
+		// リフレッシュ成功 → 同一リクエストをリトライ（rewrite がセッションから新 AccessToken を取得する）
+		slog.Info("Token refreshed successfully, retrying request", "url", r.URL.String())
+		r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 		rp.ServeHTTP(w, r)
 	})
+}
+
+// flushRecorder は httptest.ResponseRecorder の内容を実際の ResponseWriter へコピーする。
+func flushRecorder(w http.ResponseWriter, rec *httptest.ResponseRecorder) {
+	for k, vs := range rec.Header() {
+		for _, v := range vs {
+			w.Header().Add(k, v)
+		}
+	}
+	w.WriteHeader(rec.Code)
+	_, _ = w.Write(rec.Body.Bytes())
 }

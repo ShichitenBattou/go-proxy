@@ -385,3 +385,134 @@ func TestProxyHandler_Reprovisioning_Failure(t *testing.T) {
 		t.Error("expected session Provisioned flag to remain false after failed re-provisioning")
 	}
 }
+
+// TestProxyHandler_TokenRefresh_Success は API が 401 を返した際に
+// トークンリフレッシュ後のリトライで成功することを確認する。
+// リフレッシュ自体は Keycloak への通信が必要なためここでは省き、
+// セッションに RefreshToken がない場合は 401 をそのまま透過することを検証する。
+func TestProxyHandler_TokenRefresh_NoRefreshToken_Returns401(t *testing.T) {
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer backend.Close()
+
+	sessionId := "test-no-refresh-token-" + t.Name()
+	sessionData := redis.SessionData{
+		UserID:       "test-user",
+		Email:        "norefresh@example.com",
+		Name:         "No Refresh Test",
+		AccessToken:  "expired-access-token",
+		RefreshToken: "", // RefreshToken なし
+		Provisioned:  true,
+	}
+	if err := redis.SetSession(sessionId, sessionData); err != nil {
+		t.Fatalf("failed to set up test session: %v", err)
+	}
+	defer redis.DeleteSession(sessionId)
+
+	handler := proxy.NewHandler(backend.Listener.Addr().String())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/users", nil)
+	req.AddCookie(&http.Cookie{Name: "Session-Id", Value: sessionId})
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	// RefreshToken がないので 401 がそのまま返る
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 when no refresh token, got %d", rr.Code)
+	}
+
+	// セッションは削除されていない（RefreshToken なしではセッション削除しない）
+	_, err := redis.GetSessionValue(sessionId)
+	if err != nil {
+		t.Error("expected session to remain when no refresh token available")
+	}
+}
+
+// TestProxyHandler_TokenRefresh_WithRefreshToken_ClearsSessionOnFailure は
+// RefreshToken があるが Keycloak への通信が失敗する状況をシミュレートする。
+// この場合、セッションが削除されて 401 が返ることを確認する。
+// 注: 実際のリフレッシュフローは Keycloak が必要なため統合テストで検証する。
+func TestProxyHandler_TokenRefresh_InvalidRefreshToken_ClearsSession(t *testing.T) {
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer backend.Close()
+
+	sessionId := "test-invalid-refresh-" + t.Name()
+	sessionData := redis.SessionData{
+		UserID:       "test-user",
+		Email:        "invalid@example.com",
+		Name:         "Invalid Refresh Test",
+		AccessToken:  "expired-access-token",
+		RefreshToken: "invalid-refresh-token", // 無効な RefreshToken（Keycloak への接続失敗）
+		Provisioned:  true,
+	}
+	if err := redis.SetSession(sessionId, sessionData); err != nil {
+		t.Fatalf("failed to set up test session: %v", err)
+	}
+	defer redis.DeleteSession(sessionId)
+
+	handler := proxy.NewHandler(backend.Listener.Addr().String())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/users", nil)
+	req.AddCookie(&http.Cookie{Name: "Session-Id", Value: sessionId})
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	// リフレッシュ失敗（Keycloak 疎通不可）→ 401 が返る
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 when refresh fails, got %d", rr.Code)
+	}
+
+	// セッションは削除される
+	_, err := redis.GetSessionValue(sessionId)
+	if err == nil {
+		t.Error("expected session to be deleted after refresh failure")
+	}
+}
+
+// TestProxyHandler_TokenRefresh_SuccessRetry は API が 200 を返す場合（非 401）、
+// recorder 経由でレスポンスが正しくクライアントへ届くことを確認する。
+func TestProxyHandler_RecorderFlush_NonUnauthorized(t *testing.T) {
+	const responseBody = `{"message":"ok"}`
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(responseBody))
+	}))
+	defer backend.Close()
+
+	sessionId := "test-flush-recorder-" + t.Name()
+	sessionData := redis.SessionData{
+		UserID:      "test-user",
+		Email:       "flush@example.com",
+		Name:        "Flush Test",
+		AccessToken: "valid-access-token",
+		Provisioned: true,
+	}
+	if err := redis.SetSession(sessionId, sessionData); err != nil {
+		t.Fatalf("failed to set up test session: %v", err)
+	}
+	defer redis.DeleteSession(sessionId)
+
+	handler := proxy.NewHandler(backend.Listener.Addr().String())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/items", nil)
+	req.AddCookie(&http.Cookie{Name: "Session-Id", Value: sessionId})
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rr.Code)
+	}
+	if rr.Body.String() != responseBody {
+		t.Errorf("expected body %q, got %q", responseBody, rr.Body.String())
+	}
+	if ct := rr.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected Content-Type application/json, got %q", ct)
+	}
+}

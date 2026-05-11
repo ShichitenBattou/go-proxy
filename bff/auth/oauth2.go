@@ -2,6 +2,7 @@ package auth
 
 import (
 	"bff/setup"
+	"bff/redis"
 	"bff/utils"
 	"context"
 	"encoding/json"
@@ -83,4 +84,43 @@ func exchangeForAPIToken(ctx context.Context, bffAccessToken string) (string, er
 	}
 
 	return tokenResp.AccessToken, nil
+}
+
+// refreshBFFToken は RefreshToken を使って Keycloak から新しい BFF トークンセット
+//（AccessToken + RefreshToken）を取得する。
+func refreshBFFToken(ctx context.Context, refreshToken string) (*oauth2.Token, error) {
+	ctx = oidc.ClientContext(ctx, utils.GetInternalHTTPClient())
+	oauth2Config, err := getOAuth2Config()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get OAuth2 config: %w", err)
+	}
+	ts := oauth2Config.TokenSource(ctx, &oauth2.Token{RefreshToken: refreshToken})
+	token, err := ts.Token()
+	if err != nil {
+		return nil, fmt.Errorf("token refresh failed: %w", err)
+	}
+	return token, nil
+}
+
+// RefreshAPIToken は RefreshToken を使って BFF トークンをリフレッシュし、
+// さらに Token Exchange で API AccessToken を取得して更新済みの SessionData を返す。
+// ADR-0020 参照。
+func RefreshAPIToken(ctx context.Context, sessionData redis.SessionData) (redis.SessionData, error) {
+	newBFFToken, err := refreshBFFToken(ctx, sessionData.RefreshToken)
+	if err != nil {
+		return sessionData, fmt.Errorf("BFF token refresh failed: %w", err)
+	}
+	slog.Info("BFF token refreshed successfully")
+
+	newAPIAccessToken, err := exchangeForAPIToken(ctx, newBFFToken.AccessToken)
+	if err != nil {
+		return sessionData, fmt.Errorf("token exchange after refresh failed: %w", err)
+	}
+	slog.Info("API access token obtained via token exchange after refresh")
+
+	sessionData.AccessToken = newAPIAccessToken
+	if newBFFToken.RefreshToken != "" {
+		sessionData.RefreshToken = newBFFToken.RefreshToken
+	}
+	return sessionData, nil
 }
