@@ -27,36 +27,36 @@ func NewHandler(forwardHost string) http.Handler {
 	rewrite := func(request *httputil.ProxyRequest) {
 		sessionID, err := request.In.Cookie(cfg.SessionCookieName)
 		if err != nil {
-			slog.Error("Error getting cookie", "error", err)
+			slog.Info("No session cookie found, forwarding request without authentication")
 		} else {
 			slog.Info("Received request with cookie", "cookie", sessionID)
-		}
 
-		// Check if the session ID exists in Redis
-		sessionData, err := redis.GetSessionValue(sessionID.Value)
-		if err != nil {
-			slog.Info("Session not found in Redis", "sessionId", sessionID.Value)
-		} else {
-			slog.Info("Session found in Redis", "sessionId", sessionID.Value)
+			// Check if the session ID exists in Redis
+			sessionData, err := redis.GetSessionValue(sessionID.Value)
+			if err != nil {
+				slog.Info("Session not found in Redis", "sessionId", sessionID.Value)
+			} else {
+				slog.Info("Session found in Redis", "sessionId", sessionID.Value)
 
-			// 未プロビジョニングの場合、転送前に再試行する
-			if !sessionData.Provisioned {
-				slog.Info("Session not provisioned, attempting re-provisioning", "sessionId", sessionID.Value)
-				if err := auth.ProvisionUser(request.In.Context(), sessionData.AccessToken, forwardHost); err != nil {
-					slog.Warn("Re-provisioning failed, forwarding request anyway", "error", err)
-				} else {
-					sessionData.Provisioned = true
-					if err := redis.UpdateSession(sessionID.Value, sessionData); err != nil {
-						slog.Warn("Failed to update session provisioned flag", "error", err)
+				// 未プロビジョニングの場合、転送前に再試行する
+				if !sessionData.Provisioned {
+					slog.Info("Session not provisioned, attempting re-provisioning", "sessionId", sessionID.Value)
+					if err := auth.ProvisionUser(request.In.Context(), sessionData.AccessToken, forwardHost); err != nil {
+						slog.Warn("Re-provisioning failed, forwarding request anyway", "error", err)
+					} else {
+						sessionData.Provisioned = true
+						if err := redis.UpdateSession(sessionID.Value, sessionData); err != nil {
+							slog.Warn("Failed to update session provisioned flag", "error", err)
+						}
 					}
 				}
-			}
 
-			// Add Authorization header with AccessToken
-			if sessionData.AccessToken != "" {
-				request.Out.Header.Set("Authorization", "Bearer "+sessionData.AccessToken)
-			} else {
-				slog.Warn("AccessToken is empty in session", "sessionId", sessionID.Value)
+				// Add Authorization header with AccessToken
+				if sessionData.AccessToken != "" {
+					request.Out.Header.Set("Authorization", "Bearer "+sessionData.AccessToken)
+				} else {
+					slog.Warn("AccessToken is empty in session", "sessionId", sessionID.Value)
+				}
 			}
 		}
 
