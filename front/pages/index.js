@@ -116,13 +116,9 @@ async function createPost() {
 
 // POST /users
 async function createUser() {
-    const keycloakSub = document.getElementById('post-users-keycloak_sub').value.trim();
-
     const response = await fetch(`${BASE_URL}/users`, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keycloak_sub: keycloakSub }),
     });
     return renderResponse(response);
 }
