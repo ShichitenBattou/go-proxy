@@ -24,6 +24,7 @@
       "Bash(git add:*)",
       "Bash(git status)",
       "Bash(git diff:*)",
+      "Bash(git commit -m ':*)",
       "Bash(cd:*)"
     ]
   },
