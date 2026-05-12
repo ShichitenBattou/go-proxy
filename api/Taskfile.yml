@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+includes:
+  dev:
+    taskfile: Taskfile.dev.yml
+
+tasks:
+  setup:
+    desc: Setup the project
+    cmds:
+      - cmd: echo "Setting up api project..."
+      - cmd: uv sync
+      - cmd: echo "done"
+
+  lint:
+    desc: Run all linters (ruff, mypy)
+    cmds:
+      - task: ruff
+      - task: mypy
+
+  build:
+    desc: Build check (no-op for Python)
+    cmds:
+      - cmd: echo "No build step for Python project"
+
+  test:
+    desc: Run tests
+    cmds:
+      - cmd: echo "Running tests..."
+      - cmd: uv run pytest
+      - cmd: echo "done"
+
+  export-openapi:
+    desc: Export OpenAPI schema (use CLI_ARGS to pass options, e.g. -- -o openapi.json)
+    cmds:
+      - uv run scripts/export_openapi.py {{.CLI_ARGS}}
+
+  ruff:
+    desc: Run ruff linter
+    cmds:
+      - cmd: echo "Running ruff linter..."
+      - cmd: uv run ruff check . {{.CLI_ARGS}}
+      - cmd: echo "done"
+
+  mypy:
+    desc: Run mypy type checker
+    cmds:
+      - cmd: echo "Running mypy type checker..."
+      - cmd: uv run mypy . {{.CLI_ARGS}}
+      - cmd: echo "done"
+
+  migrate:
+    desc: Run database migrations
+    cmds:
+      - cmd: echo "Running database migrations..."
+      - cmd: uv run alembic upgrade head
+      - cmd: echo "done"

@@ -1,0 +1,21 @@
+colors:
+  cyan: '#00FFFF'
+  gray: '#808080'
+  green: '#32CD32'
+  red: '#FF1493'
+  yellow: '#F0E68C'
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: ruff check
+      root: "api/"
+      glob: "*.py"
+      run: uv run ruff check {staged_files}
+    - name: mypy
+      root: "api/"
+      glob: "*.py"
+      run: uv run mypy {staged_files}
+    - name: semgrep
+      glob: "*"
+      run: uvx semgrep --config auto {staged_files}

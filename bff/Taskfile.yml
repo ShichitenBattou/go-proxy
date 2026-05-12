@@ -3,10 +3,20 @@
 version: '3'
 
 tasks:
+  lint:
+    desc: Run all linters (go vet)
+    cmds:
+      - task: vet
+
   build:
     desc: Build BFF
     cmds:
       - go build ./...
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
 
   run:
     desc: Run BFF locally (requires Redis on redis:6379)
@@ -19,8 +29,7 @@ tasks:
       - defer: {task: test:down}
       - task: test:up
       - cmd: |
-          REDIS_IP=$(docker compose -f compose.test.yml exec -T redis hostname -i | tr -d ' \n')
-          REDIS_ADDR=${REDIS_IP}:6379 go test ./...
+          REDIS_ADDR=localhost:6379 REDIS_ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000000 go test ./...
 
   test:up:
     internal: true
@@ -31,6 +40,11 @@ tasks:
     internal: true
     cmds:
       - docker compose -f compose.test.yml down
+
+  generate-redis-encryption-key:
+    desc: Generate a random AES-256 key for REDIS_ENCRYPTION_KEY (copy to .env)
+    cmds:
+      - openssl rand -hex 32
 
   setup:
     desc: Setup the project

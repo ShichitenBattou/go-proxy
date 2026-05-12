@@ -1,0 +1,248 @@
+:root {
+    --primary-bg-color: #f0f0f0;
+    --primary-text-color: #333;
+    --primary-color: #007bff;
+    --secondary-color: #6c757d;
+    --border-radius: 4px;
+    --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif
+}
+
+h1 {
+    color: var(--primary-color);
+    font-size: 2.5em;
+    margin-bottom: 0.5em;
+}
+
+#header {
+    background-color: var(--primary-bg-color);
+    padding: 1em;
+    text-align: center;
+    border-bottom: 1px solid var(--secondary-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+}
+
+.button {
+    background-color: var(--primary-bg-color);
+    color: var(--primary-color);
+    padding: 0.5em 1em;
+    margin: 0.5em;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 1em;
+    font-family: var(--font-family);
+}
+
+.button:hover {
+    opacity: 0.8;
+}
+
+.left-header {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.left-header :hover {
+    cursor: pointer;
+}
+
+
+.center-header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-grow: 1;
+}
+
+.right-header {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+/* 認証状態の表示切り替え（JavaScript で制御） */
+.auth-logged-out,
+.auth-logged-in {
+    display: flex;
+    align-items: center;
+}
+
+.auth-logged-out.hidden,
+.auth-logged-in.hidden {
+    display: none;
+}
+
+.user-info {
+    padding: 0.5em 1em;
+    margin: 0.5em;
+    color: var(--primary-text-color);
+    font-size: 1em;
+}
+
+#main_content {
+    padding: 2em;
+    min-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* API Explorer */
+.api-section {
+    width: 100%;
+    max-width: 800px;
+    margin-bottom: 2em;
+}
+
+.api-section h2 {
+    color: var(--primary-text-color);
+    font-size: 1.4em;
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: 0.3em;
+    margin-bottom: 1em;
+}
+
+.endpoint-card {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 1em 1.2em;
+    margin-bottom: 1em;
+}
+
+.endpoint-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    margin-bottom: 0.8em;
+    flex-wrap: wrap;
+}
+
+.endpoint-path {
+    font-family: monospace;
+    font-size: 1em;
+    color: var(--primary-text-color);
+}
+
+/* HTTP メソッドバッジ */
+.method-badge {
+    font-size: 0.75em;
+    font-weight: bold;
+    padding: 0.2em 0.6em;
+    border-radius: 3px;
+    color: #fff;
+    min-width: 54px;
+    text-align: center;
+    letter-spacing: 0.05em;
+}
+
+.method-get {
+    background-color: #28a745;
+}
+
+.method-post {
+    background-color: #007bff;
+}
+
+.method-delete {
+    background-color: #dc3545;
+}
+
+/* アクセス制御バッジ */
+.access-badge {
+    font-size: 0.72em;
+    font-weight: bold;
+    padding: 0.2em 0.6em;
+    border-radius: 3px;
+    margin-left: auto;
+}
+
+.badge-public {
+    background-color: #e6f4ea;
+    color: #1a7a34;
+    border: 1px solid #a8d5b5;
+}
+
+.badge-auth {
+    background-color: #fff3e0;
+    color: #b45309;
+    border: 1px solid #f5c97a;
+}
+
+/* パラメータフォーム */
+.params-section {
+    margin-bottom: 0.8em;
+}
+
+.param-row {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 0.6em;
+}
+
+.param-row label {
+    font-size: 0.85em;
+    color: var(--secondary-color);
+    margin-bottom: 0.2em;
+}
+
+.param-type {
+    font-size: 0.8em;
+    color: #999;
+    margin-left: 0.4em;
+}
+
+.param-row input[type="text"],
+.param-row input[type="number"],
+.param-row textarea {
+    padding: 0.4em 0.6em;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-family: var(--font-family);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.param-row textarea {
+    resize: vertical;
+}
+
+/* 送信ボタン */
+.send-btn {
+    background-color: var(--primary-color);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 0.4em 1.2em;
+    font-size: 0.9em;
+    cursor: pointer;
+    font-family: var(--font-family);
+}
+
+.send-btn:hover {
+    opacity: 0.85;
+}
+
+/* レスポンス表示 */
+.response-area {
+    margin-top: 0.8em;
+    background: #f8f8f8;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 0.7em 0.9em;
+    font-size: 0.82em;
+    font-family: monospace;
+    white-space: pre-wrap;
+    word-break: break-all;
+    min-height: 2em;
+    color: var(--primary-text-color);
+    display: none;
+}
+
+.response-area:not(:empty) {
+    display: block;
+}

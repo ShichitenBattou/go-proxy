@@ -1,0 +1,39 @@
+server {
+    listen ${NGINX_PORT} ssl;
+    server_name ${NGINX_HOST};
+    ssl_certificate server.crt;
+    ssl_certificate_key server.key;
+
+    location / {
+        root /var/www/pages;
+        index index.html;
+        try_files $uri $uri/ =404;
+        add_header Cache-Control "no-cache";
+    }
+
+    location /idp/ {
+        proxy_pass http://keycloak:8080/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme; 
+        proxy_set_header X-Forwarded-Prefix /idp;
+        add_header Cache-Control "no-store";
+        proxy_intercept_errors on;
+        error_page 502 503 504 /error/keycloak_unavailable.html;
+    }
+
+    location = /error/keycloak_unavailable.html {
+        root /var/www/pages;
+        internal;
+    }
+
+    location /api/ {
+        proxy_pass http://bff:8080/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Cache-Control "no-cache";
+    }
+}

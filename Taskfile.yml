@@ -9,6 +9,9 @@ includes:
   bff:
     dir: ./bff
     taskfile: ./bff/Taskfile.yml
+  api:
+    dir: ./api
+    taskfile: ./api/Taskfile.yml
 
 tasks:
   default:
@@ -17,12 +20,84 @@ tasks:
       - echo "{{.GREETING}}"
     silent: true
 
-  generate-keys:
-    desc: Generate a Private/Public SSL/TLS key pair
-    cmds:
-      - openssl req -x509 -newkey rsa:2048 -keyout ./keys/server.key -out ./keys/server.crt -days 365 -nodes -subj "/C=JP/ST=Osaka/L=Osaka/O=Freelance Watanabe/OU=None/CN=localhost" -addext "subjectAltName=DNS:localhost"
-
   semgrep:
     desc: Run Semgrep to analyze the codebase
     cmds:
       - uvx semgrep --config auto .
+
+  lint:
+    desc: Run all lint checks
+    cmds:
+      - task: semgrep
+      - task: api:lint
+      - task: bff:lint
+
+  build:
+    desc: Run all build checks
+    cmds:
+      - task: api:build
+      - task: bff:build
+
+  test:
+    desc: Run all tests
+    cmds:
+      - task: api:test
+      - task: bff:test
+
+  ci:
+    desc: Run all CI checks (lint, build, test)
+    cmds:
+      - task: lint
+        ignore_error: true
+      - task: build
+        ignore_error: true
+      - task: test
+        ignore_error: true
+
+  setup:
+    desc: Setup the project
+    cmds:
+      - cmd: echo "Setting up the project..."
+      - cmd: aqua install
+      - task: api:setup
+      - task: bff:setup
+
+  migrate:
+    desc: Run database migrations
+    cmds:
+      - cmd: echo "Running database migrations..."
+      - cmd: docker compose --env-file .env up -d --wait api_db
+      - cmd: DB_HOST=localhost task api:migrate
+      - cmd: docker compose down
+      - cmd: echo "done"
+
+  run:
+    desc: Run the application
+    cmds:
+      - cmd: echo "Starting the application..."
+      - task: migrate
+      - cmd: docker compose --env-file .env up -d --build
+      - cmd: echo "Application is running at http://localhost"
+      - task: wait_keycloak
+
+  reset_and_run:
+    desc: Clean up the environment and run the application
+    cmds:
+      - cmd: echo "Cleaning up the environment..."
+      - cmd: docker compose down -v
+      - cmd: echo "Environment cleaned up"
+      - task: run
+
+  wait_keycloak:
+    desc: Wait for Keycloak to be healthy
+    silent: true
+    cmds:
+      - |
+        for i in {1..30}; do
+          curl -fsS http://localhost:9000/health > /dev/null && echo "keycloak is ready!!" && exit 0
+          echo "waiting keycloak..."
+          sleep 5
+        done
+
+        echo "keycloak is not ready"
+        exit 1

@@ -24,7 +24,8 @@
 		"AQUA_HOME": "/home/vscode/.local/share/aquaproj-aqua"
 	},
 	"remoteEnv": {
-		"PATH": "/home/vscode/.local/share/aquaproj-aqua/bin:${containerEnv:PATH}"
+		"PATH": "/home/vscode/.local/share/aquaproj-aqua/bin:${containerEnv:PATH}",
+		"HOST_WORKSPACE": "${localWorkspaceFolder}"
 	},
 	"customizations": {
 		"vscode": {
@@ -32,16 +33,14 @@
 				"streetsidesoftware.code-spell-checker-british-english",
 				"vivaxy.vscode-conventional-commits",
 				"eamodio.gitlens",
-				"ms-azuretools.vscode-docker"
+				"ms-azuretools.vscode-docker",
+				"charliermarsh.ruff",
+				"ms-python.mypy-type-checker"
 			]
 		}
 	},
 	"postCreateCommand": [
 		"bash",
 		"./.devcontainer/postCreateCommand.sh"
-	],
-	"initializeCommand": [
-		"bash",
-		"./.devcontainer/initializeCommand.sh"
 	]
 }

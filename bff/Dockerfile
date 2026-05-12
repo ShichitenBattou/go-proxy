@@ -1,7 +1,17 @@
-FROM golang:1.26.0-trixie
+FROM golang:1.26.0-trixie AS builder
 
 WORKDIR /app
 
-COPY . /app/
+COPY go.mod go.sum ./
+RUN go mod download
 
-ENTRYPOINT [ "go", "run", "main.go" ]
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o main .
+
+FROM debian:trixie
+
+WORKDIR /app
+
+COPY --from=builder /app/main .
+
+ENTRYPOINT [ "./main" ]

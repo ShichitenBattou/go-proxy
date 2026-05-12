@@ -1,20 +1,55 @@
 services:
+  front:
+    image: nginx:1.29.7
+    ports:
+      - "3000:3000"
+      - "443:443"
+    environment:
+      - NGINX_HOST=auth.local
+      - NGINX_PORT=443
+    depends_on:
+      - bff
+      - keycloak
+    volumes:
+      - ${HOST_WORKSPACE:-.}/front/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ${HOST_WORKSPACE:-.}/front/pages:/var/www/pages:ro
+      - ${HOST_WORKSPACE:-.}/front/server.crt:/etc/nginx/server.crt:ro
+      - ${HOST_WORKSPACE:-.}/front/server.key:/etc/nginx/server.key:ro
+    networks:
+      go-proxy-network:
+        aliases:
+          - auth.local
+
   bff:
     build: ./bff
     ports:
       - "8080:8080"
-      - "443:443"
     depends_on:
       - api
       - redis
     healthcheck:
-      test: ["CMD", "curl", "-fk", "https://localhost:443"]
+      test: ["CMD", "curl", "-fk", "http://localhost:8080/health"]
       interval: 1m30s
       timeout: 30s
       retries: 5
       start_period: 30s
+    env_file:
+      - ${HOST_WORKSPACE:-.}/bff/.env
+    networks:
+      go-proxy-network:
+    volumes:
+      - ${HOST_WORKSPACE:-.}/front/rootCA.crt:/app/rootCA.crt:ro
+
+  redis:
+    image: redis:8.4
+    ports:
+      - "6379:6379"
+    networks:
+      go-proxy-network:
+
   api:
-    build: ./api
+    build:
+      context: ./api
     ports:
       - "8081:8081"
     healthcheck:
@@ -23,12 +58,36 @@ services:
       timeout: 30s
       retries: 5
       start_period: 30s
+    environment:
+      - JWKS_SSL_CA_BUNDLE=/app/rootCA.crt
+    env_file:
+      - ${HOST_WORKSPACE:-.}/api/.env
+    volumes:
+      - ${HOST_WORKSPACE:-.}/${ROOT_CA_PATH}:/app/rootCA.crt:ro
+    depends_on:
+      - api_db
+    networks:
+      go-proxy-network:
 
-  redis:
-    image: redis:8.4
+  api_db:
+    image: postgres:17.4
+    container_name: ${DB_HOST}
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "6379:6379"
-  
+      - "${DB_PORT}:5432"
+    volumes:
+      - api_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      go-proxy-network:
+
   keycloak:
     image: quay.io/keycloak/keycloak:26.5.4
     environment:
@@ -40,12 +99,23 @@ services:
       - KC_DB_PASSWORD=${KC_POSTGRES_PASSWORD:-postgres}
     ports:
       - "8082:8080"
+      - "9000:9000"
     depends_on:
       kc_postgres:
         condition: service_healthy
     volumes:
-      - ${HOST_WORKSPACE}/keycloak/data/import/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
-    command: ["start-dev", "--import-realm"]
+      - ${HOST_WORKSPACE:-.}/keycloak/data/import/realm.json:/opt/keycloak/data/import/realm.json:ro
+    command: [
+      "start-dev",
+      "--import-realm",
+      "--features=token-exchange-standard",
+      "--proxy-headers", "xforwarded",
+      "--hostname", "https://auth.local/idp/",
+      "--hostname-strict", "true",
+      "--health-enabled=true",
+    ]
+    networks:
+      go-proxy-network:
 
   kc_postgres:
     image: postgres:18.3
@@ -54,7 +124,7 @@ services:
       - POSTGRES_PASSWORD=${KC_POSTGRES_PASSWORD:-postgres}
       - POSTGRES_DB=${KC_POSTGRES_DB:-postgres}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql
     healthcheck:
@@ -62,6 +132,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      go-proxy-network:
 
 volumes:
   pgdata:
+  api_pgdata:
+
+networks:
+  go-proxy-network:

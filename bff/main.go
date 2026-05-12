@@ -8,27 +8,54 @@ import (
 
 	"bff/auth"
 	"bff/proxy"
+	"bff/setup"
+
+	"github.com/go-chi/chi/v5"
 )
 
 func main() {
-	jsonHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})
+	jsonHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{AddSource: true, Level: slog.LevelDebug})
 	slog.SetDefault(slog.New(jsonHandler))
+
+	cfg := setup.GetConfig()
+
+	// Validate configuration at startup
+	if err := cfg.Validate(); err != nil {
+		slog.Error("Configuration validation failed", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("Configuration validated successfully")
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 
 	go func() {
-		slog.Info("Starting Proxy server on port 443...")
+		slog.Info("Starting BFF server", "addr", cfg.BFFListenAddr)
 
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// Chi router setup
+		r := chi.NewRouter()
+
+		// Health check endpoint
+		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			slog.Info("Health check", "url", r.URL.String(), "requestedHost", r.Host, "ip", r.RemoteAddr)
 			w.WriteHeader(http.StatusOK)
 		})
-		http.Handle("/api/", proxy.NewHandler("api:8081"))
-		http.HandleFunc("/auth/login", auth.LoginHandler)
-		http.HandleFunc("/auth/callback", auth.CallbackHandler)
 
-		http.ListenAndServeTLS(":443", "./_keys/server.crt", "./_keys/server.key", nil)
+		// Authentication endpoints
+		r.Route("/auth", func(r chi.Router) {
+			r.Get("/login", auth.LoginHandler)
+			r.Get("/callback", auth.NewCallbackHandler(auth.ProvisionUser))
+			r.Get("/me", auth.MeHandler)
+			r.Post("/logout", auth.LogoutHandler)
+		})
+
+		// Public proxy handler (no session validation)
+		r.Handle("/public/*", proxy.NewPublicHandler(cfg.ProxyTarget))
+
+		// Proxy handler (catch-all for unmatched routes)
+		r.Handle("/*", proxy.NewHandler(cfg.ProxyTarget))
+
+		http.ListenAndServe(cfg.BFFListenAddr, r)
 		wg.Done()
 	}()
 
