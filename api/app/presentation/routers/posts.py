@@ -36,7 +36,18 @@ class PostResponse(BaseModel):
     version: int
 
 
-@router.post("", status_code=201, response_model=PostResponse)
+@router.post(
+    "",
+    status_code=201,
+    response_model=PostResponse,
+    summary="Create a post",
+    description=(
+        "新しい投稿を作成する。\n\n"
+        "**投稿可能条件**: `role=USER` かつ `is_active=True` のユーザーのみ。"
+        "管理者（`role=ADMIN`）および無効化ユーザーは投稿不可（**403**）。\n\n"
+        "投稿者が存在しない場合は **404** を返す。"
+    ),
+)
 async def create_post(
     body: CreatePostRequest,
     current_user: CurrentUser,
@@ -67,7 +78,19 @@ async def create_post(
     )
 
 
-@router.get("", response_model=list[PostResponse])
+@router.get(
+    "",
+    response_model=list[PostResponse],
+    summary="List posts",
+    description=(
+        "投稿一覧を返す。\n\n"
+        "| クエリパラメータ | 型 | 説明 |\n"
+        "|---|---|---|\n"
+        "| `author_id` | UUID (optional) | 指定した著者の投稿のみ絞り込む |\n"
+        "| `limit` | int (default: 20) | 取得件数の上限 |\n"
+        "| `offset` | int (default: 0) | 取得開始位置（ページネーション用） |"
+    ),
+)
 async def list_posts(
     current_user: CurrentUser,
     interactor: Annotated[ListPostsInteractor, Depends(get_list_posts_interactor)],
@@ -92,7 +115,12 @@ async def list_posts(
     ]
 
 
-@router.get("/{post_id}", response_model=PostResponse)
+@router.get(
+    "/{post_id}",
+    response_model=PostResponse,
+    summary="Get post by ID",
+    description="指定した `post_id` の投稿を返す。存在しない場合は **404** を返す。",
+)
 async def get_post(
     post_id: UUID,
     current_user: CurrentUser,

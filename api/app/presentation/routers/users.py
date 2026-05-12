@@ -27,7 +27,17 @@ class UserResponse(BaseModel):
     is_active: bool
 
 
-@router.post("", status_code=201, response_model=UserResponse)
+@router.post(
+    "",
+    status_code=201,
+    response_model=UserResponse,
+    summary="Upsert user by Keycloak sub",
+    description=(
+        "Keycloak の `sub` クレームをキーにユーザーを登録する。\n\n"
+        "- 同一 `keycloak_sub` が既存の場合は **200** を返す（冪等）\n"
+        "- 新規作成の場合は **201** を返す"
+    ),
+)
 async def create_user(
     response: Response,
     keycloak_sub: CurrentSub,
@@ -44,7 +54,12 @@ async def create_user(
     )
 
 
-@router.get("/{user_id}", response_model=UserResponse)
+@router.get(
+    "/{user_id}",
+    response_model=UserResponse,
+    summary="Get user by ID",
+    description="指定した `user_id` のユーザーを返す。存在しない場合は **404** を返す。",
+)
 async def get_user(
     user_id: UUID,
     current_user: CurrentUser,
@@ -61,7 +76,16 @@ async def get_user(
     )
 
 
-@router.delete("/{user_id}", status_code=204)
+@router.delete(
+    "/{user_id}",
+    status_code=204,
+    summary="Deactivate user (soft delete)",
+    description=(
+        "ユーザーを**論理削除**（無効化）する。物理削除ではなくレコードの `is_active` を `False` に"
+        "セットするため、データは保持される。\n\n"
+        "存在しないユーザーを指定した場合は **404** を返す。"
+    ),
+)
 async def deactivate_user(
     user_id: UUID,
     current_user: CurrentUser,

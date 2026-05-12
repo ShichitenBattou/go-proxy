@@ -2,7 +2,7 @@
 
 ## Status
 
-提案中（Proposed） - 2026-05-12
+承認済み（Accepted） - 2026-05-12
 
 ## Context
 
