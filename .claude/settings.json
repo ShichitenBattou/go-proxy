@@ -25,7 +25,9 @@
       "Bash(git status)",
       "Bash(git diff:*)",
       "Bash(git commit -m ':*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Edit",
+      "Write"
     ]
   },
   "enableAllProjectMcpServers": true,
