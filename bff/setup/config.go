@@ -1,7 +1,9 @@
 package setup
 
 import (
+	"encoding/hex"
 	"fmt"
+	"log"
 	"os"
 	"regexp"
 	"strconv"
@@ -49,6 +51,7 @@ type Config struct {
 
 	// Security settings
 	AllowedRedirectPathPattern string // Regex pattern for allowed redirect URLs
+	RedisEncryptionKey         []byte // AES-256-GCM key for Redis session encryption (32 bytes)
 }
 
 var (
@@ -117,9 +120,27 @@ func GetConfig() *Config {
 
 			// Security settings
 			AllowedRedirectPathPattern: getEnv("ALLOWED_REDIRECT_PATH_PATTERN", ""),
+			RedisEncryptionKey:         mustDecodeHexKey("REDIS_ENCRYPTION_KEY"),
 		}
 	})
 	return config
+}
+
+// mustDecodeHexKey decodes a 64-char hex string from the given env var into 32 bytes.
+// Calls log.Fatal if the env var is missing or not exactly 32 bytes after decoding.
+func mustDecodeHexKey(envVar string) []byte {
+	raw := os.Getenv(envVar)
+	if raw == "" {
+		log.Fatalf("required environment variable %s is not set (generate with: openssl rand -hex 32)", envVar)
+	}
+	key, err := hex.DecodeString(raw)
+	if err != nil {
+		log.Fatalf("invalid %s: must be a hex-encoded string: %v", envVar, err)
+	}
+	if len(key) != 32 {
+		log.Fatalf("invalid %s: decoded key must be 32 bytes (got %d)", envVar, len(key))
+	}
+	return key
 }
 
 // Validate validates the configuration and compiles regex patterns to detect errors early

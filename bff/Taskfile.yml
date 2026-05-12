@@ -29,7 +29,7 @@ tasks:
       - defer: {task: test:down}
       - task: test:up
       - cmd: |
-          REDIS_ADDR=localhost:6379 go test ./...
+          REDIS_ADDR=localhost:6379 REDIS_ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000000 go test ./...
 
   test:up:
     internal: true

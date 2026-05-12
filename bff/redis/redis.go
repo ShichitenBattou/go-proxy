@@ -4,9 +4,11 @@ import (
 	"bff/setup"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/url"
 	"time"
@@ -42,9 +44,14 @@ func SetSession(sessionId string, sessionData SessionData) error {
 		return err
 	}
 
+	encrypted, err := encrypt(content, cfg.RedisEncryptionKey)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt session data: %w", err)
+	}
+
 	hashedSessionId := hashToken(sessionId)
 	key := cfg.SessionKeyPrefix + hashedSessionId
-	err = rdb.Set(ctx, key, content, cfg.SessionTTL).Err()
+	err = rdb.Set(ctx, key, base64.StdEncoding.EncodeToString(encrypted), cfg.SessionTTL).Err()
 	if err != nil {
 		return err
 	}
@@ -67,8 +74,18 @@ func GetSessionValue(sessionId string) (SessionData, error) {
 		return SessionData{}, err
 	}
 
+	encrypted, err := base64.StdEncoding.DecodeString(content)
+	if err != nil {
+		return SessionData{}, fmt.Errorf("failed to base64-decode session data: %w", err)
+	}
+
+	plaintext, err := decrypt(encrypted, cfg.RedisEncryptionKey)
+	if err != nil {
+		return SessionData{}, fmt.Errorf("failed to decrypt session data: %w", err)
+	}
+
 	var sessionData SessionData
-	if err := json.Unmarshal([]byte(content), &sessionData); err != nil {
+	if err := json.Unmarshal(plaintext, &sessionData); err != nil {
 		return SessionData{}, err
 	}
 	slog.Info("Session retrieved from Redis", "key", key, "userId", sessionData.UserID)

@@ -187,6 +187,7 @@ func TestGetConfigFromDotEnvFile(t *testing.T) {
 
 	// 環境変数をクリアして .env ファイルからのみ読み込むようにする
 	os.Clearenv()
+	os.Setenv("REDIS_ENCRYPTION_KEY", "0000000000000000000000000000000000000000000000000000000000000000")
 
 	// テスト用の .env ファイルを作成
 	envContent := `BFF_LISTEN_ADDR=:7070
@@ -242,6 +243,7 @@ func TestGetConfigFromDotEnvTest(t *testing.T) {
 	// 環境変数をクリアして .env.test ファイルからのみ読み込むようにする
 	os.Clearenv()
 	os.Setenv("GO_ENV", "test")
+	os.Setenv("REDIS_ENCRYPTION_KEY", "0000000000000000000000000000000000000000000000000000000000000000")
 
 	// テスト用の .env.test ファイルを作成
 	envTestContent := `BFF_LISTEN_ADDR=:6060
@@ -285,6 +287,7 @@ func TestGetConfigProductionIgnoresDotEnv(t *testing.T) {
 	// 環境変数をクリアして GO_ENV=production を設定
 	os.Clearenv()
 	os.Setenv("GO_ENV", "production")
+	os.Setenv("REDIS_ENCRYPTION_KEY", "0000000000000000000000000000000000000000000000000000000000000000")
 
 	// 本番環境では必須の環境変数を設定
 	os.Setenv("BFF_LISTEN_ADDR", ":5050")
