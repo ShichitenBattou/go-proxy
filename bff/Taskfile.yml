@@ -41,6 +41,11 @@ tasks:
     cmds:
       - docker compose -f compose.test.yml down
 
+  generate-redis-encryption-key:
+    desc: Generate a random AES-256 key for REDIS_ENCRYPTION_KEY (copy to .env)
+    cmds:
+      - openssl rand -hex 32
+
   setup:
     desc: Setup the project
     cmds:
