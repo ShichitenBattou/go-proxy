@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
 from app.application.queries.list_posts import ListPostsInteractor, ListPostsQuery
@@ -25,20 +25,13 @@ class PostResponse(BaseModel):
     "/posts",
     response_model=list[PostResponse],
     summary="List posts (public)",
-    description=(
-        "認証不要で投稿一覧を返す公開エンドポイント。\n\n"
-        "| クエリパラメータ | 型 | 説明 |\n"
-        "|---|---|---|\n"
-        "| `author_id` | UUID (optional) | 指定した著者の投稿のみ絞り込む |\n"
-        "| `limit` | int (default: 20) | 取得件数の上限 |\n"
-        "| `offset` | int (default: 0) | 取得開始位置（ページネーション用） |"
-    ),
+    description="認証不要で投稿一覧を返す公開エンドポイント。`author_id`・`limit`・`offset` でフィルタ・ページネーション可能。",
 )
 async def list_public_posts(
     interactor: Annotated[ListPostsInteractor, Depends(get_list_posts_interactor)],
-    author_id: UUID | None = None,
-    limit: int = 20,
-    offset: int = 0,
+    author_id: UUID | None = Query(default=None, description="指定した著者の投稿のみ絞り込む"),
+    limit: int = Query(default=20, description="取得件数の上限"),
+    offset: int = Query(default=0, description="取得開始位置（ページネーション用）"),
 ) -> list[PostResponse]:
     posts = await interactor.execute(
         ListPostsQuery(author_id=author_id, limit=limit, offset=offset)
