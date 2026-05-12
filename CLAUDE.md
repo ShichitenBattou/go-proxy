@@ -40,7 +40,7 @@ Keycloak を使った認証付き BFF (Backend for Frontend) プロキシパタ�
 **bff の動作**:
 1. リクエストごとに `Session-Id` Cookie を Redis で検証
 2. `/api` プレフィックスを除去して API へ転送
-3. レスポンスのたびにセッション Cookie をローテーション
+3. API が 401 を返した場合、リフレッシュトークンでアクセストークンを再取得してリトライ (ADR-0020)
 4. 未認証ユーザーを Keycloak OIDC ログインへリダイレクト
 
 ## 開発環境のセットアップ
@@ -110,7 +110,7 @@ task api:test       # api のテストを実行
 BFF は **Vertical Slice Architecture** で構成されている。機能・ユースケース単位でコードをまとめ、技術レイヤー単位のグループ化は避ける。新機能追加・修正時は、ハンドラー・ロジック・データアクセスを 1 つのスライス (ディレクトリ or パッケージ) に収める。
 
 現在のスライス構成:
-- **`bff/proxy/`** — `/api/*` ルートのリバースプロキシ・セッション検証・ローテーション
+- **`bff/proxy/`** — `/api/*` ルートのリバースプロキシ・セッション検証・トークンリフレッシュ
 - **`bff/proxy/public_handler.go`** — `/public/*` ルートのセッション検証なし公開プロキシ
 - **`bff/auth/`** — `/auth/login`・`/auth/callback`・`/auth/me`・`/auth/logout` の認証フロー
 - **`bff/redis/`** — セッション永続化インフラ・AES-256-GCM 暗号化 (各スライスから利用される共有層)

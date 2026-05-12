@@ -15,7 +15,7 @@ This is a **Backend for Frontend (BFF)** authentication proxy written in Go. It 
 
 1. **Session Management** — Validates session cookies on every request, stores sessions in Redis with SHA-256 hashed keys
 2. **Reverse Proxy** — Strips `/api` prefix and forwards requests to the backend API
-3. **Session Rotation** — Generates new session ID on every response to prevent fixation attacks
+3. **Token Refresh** — On API 401 responses, refreshes the access token via refresh token and retries the request (ADR-0020)
 4. **OIDC Authentication** — Redirects unauthenticated users to Keycloak, handles OAuth2 callbacks
 
 ### Request Flow
@@ -29,10 +29,8 @@ NGINX → BFF (:8080) → API (api:8081)
 **On each API request:**
 1. Validate `Session-Id` cookie against Redis
 2. Strip `/api` prefix (e.g., `/api/users` → `/users`)
-3. Forward to backend with `Request-Id` header
-4. Delete old session from Redis
-5. Generate new session ID and set `Set-Cookie` header
-6. Store new session in Redis with TTL
+3. Forward to backend with `Authorization: Bearer <access_token>` and `Request-Id` headers
+4. If API returns 401, refresh the access token and retry once (ADR-0020)
 
 ### Vertical Slice Architecture
 
@@ -45,7 +43,7 @@ The codebase follows **Vertical Slice Architecture** — features are organized 
   - `LogoutHandler` — Deletes session from Redis, clears cookie
 
 - **`proxy/`** — Reverse proxy handlers
-  - `NewHandler` — `/api/*` proxy with session validation, path rewriting (removes `/api` prefix), session rotation
+  - `NewHandler` — `/api/*` proxy with session validation, path rewriting (removes `/api` prefix), token refresh on 401
   - `NewPublicHandler` — `/public/*` proxy without session validation (public endpoints)
 
 - **`redis/`** — Session persistence layer (shared infrastructure)
@@ -210,7 +208,6 @@ handler.ServeHTTP(rr, req)
 
 ## Notes
 
-- **Session rotation:** Every API response triggers session deletion + creation, which may cause race conditions under high concurrency
 - **No connection pooling:** Redis client is created/closed per operation (redis/redis.go)
 - **Redis encryption:** Session data is encrypted with AES-256-GCM before storage. `REDIS_ENCRYPTION_KEY` (32-byte hex) is **required** at startup — missing key causes `log.Fatal`
 - **Security TODOs:**
