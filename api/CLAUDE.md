@@ -5,7 +5,7 @@
 ## 概要
 
 API バックエンドサービス — BFF レイヤーからプロキシされたリクエストを受け取る Python/FastAPI HTTP サーバー。
-クリーンアーキテクチャ ([参考](https://github.com/ivan-borovets/fastapi-clean-example)) を採用。Docker 内ではポート 8000 で動作する。
+クリーンアーキテクチャ ([参考](https://github.com/ivan-borovets/fastapi-clean-example)) を採用。Docker 内ではポート 8081 で動作する。
 
 ## ルール（厳守）
 
@@ -58,8 +58,8 @@ app/
 │   ├── ports/       # リポジトリインターフェース (typing.Protocol)
 │   └── exceptions/  # ドメイン例外
 ├── application/     # ユースケース。1ユースケース = 1 Interactor クラス
-│   ├── commands/    # 書き込み操作 (CreateUser, CreatePost)
-│   └── queries/     # 読み取り操作 (GetUser, ListPosts)
+│   ├── commands/    # 書き込み操作 (CreateUser, CreatePost, DeactivateUser)
+│   └── queries/     # 読み取り操作 (GetUser, GetPost, ListPosts)
 ├── infrastructure/  # ポートの具体実装 (SQLAlchemy, asyncpg)
 │   ├── database.py  # engine, AsyncSessionLocal, Base, get_db()
 │   ├── models/      # SQLAlchemy ORM モデル (UserModel, PostModel)
@@ -67,6 +67,7 @@ app/
 └── presentation/    # 薄い HTTP レイヤー
     ├── dependencies.py  # FastAPI Depends でインタラクターを組み立て
     └── routers/     # FastAPI ルーター + Pydantic スキーマ
+        └── public/  # 認証不要な公開エンドポイント (公開投稿一覧など)
 ```
 
 ### DI パターン
@@ -91,4 +92,4 @@ Dishka は使用しない。FastAPI の `Depends` でリポジトリ → イン�
 - FastAPI + uvicorn
 - SQLAlchemy 2.0 (async) + asyncpg
 - Alembic (async 対応 `env.py`)
-- Docker イメージ: `python:3.14.3`、`uvicorn main:app` を `0.0.0.0:8000` で起動
+- Docker イメージ: `python:3.14.3`、`uvicorn main:app` を `0.0.0.0:8081` で起動

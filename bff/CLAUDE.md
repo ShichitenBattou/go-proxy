@@ -38,14 +38,15 @@ NGINX → BFF (:8080) → API (api:8081)
 
 The codebase follows **Vertical Slice Architecture** — features are organized by use case, not by technical layer:
 
-- **`auth/`** — OIDC login flow (`/auth/login`, `/auth/callback`)
+- **`auth/`** — OIDC login/logout flow (`/auth/login`, `/auth/callback`, `/auth/me`, `/auth/logout`)
   - `LoginHandler` — Creates state token, stores in Redis, redirects to Keycloak
-  - `CallbackHandler` — Exchanges authorization code for tokens (incomplete implementation)
+  - `NewCallbackHandler` — Exchanges authorization code for tokens, verifies ID token, runs JIT user provisioning, creates session, sets cookie
+  - `MeHandler` — Returns current session user info
+  - `LogoutHandler` — Deletes session from Redis, clears cookie
 
-- **`proxy/`** — Reverse proxy with session validation (`/api/*`)
-  - `NewHandler` — Returns `http.Handler` that proxies to backend
-  - Path rewriting: removes `/api` prefix
-  - Session rotation: validates incoming session, creates new session on response
+- **`proxy/`** — Reverse proxy handlers
+  - `NewHandler` — `/api/*` proxy with session validation, path rewriting (removes `/api` prefix), session rotation
+  - `NewPublicHandler` — `/public/*` proxy without session validation (public endpoints)
 
 - **`redis/`** — Session persistence layer (shared infrastructure)
   - `SetSession` / `GetSessionValue` / `DeleteSession` — Session CRUD with SHA-256 hashing
@@ -131,13 +132,21 @@ Key variables (see `.env.example` for full list):
 | `BFF_LISTEN_ADDR` | `:8080` | HTTP server bind address |
 | `PROXY_TARGET` | `api:8081` | Backend API host:port |
 | `OIDC_PROVIDER_URL` | `https://auth.local/idp/realms/go-proxy` | Keycloak realm URL |
-| `OAUTH2_CLIENT_ID` | `api` | Keycloak client ID |
+| `OAUTH2_CLIENT_ID` | `bff` | Keycloak client ID |
 | `OAUTH2_CLIENT_SECRET` | (empty) | Keycloak client secret |
 | `OAUTH2_REDIRECT_URL` | `https://auth.local/api/auth/callback` | OAuth2 callback URL |
+| `OAUTH2_TARGET_AUDIENCE` | `api` | Token exchange target audience (resource server client ID) |
 | `REDIS_ADDR` | `redis:6379` | Redis connection string |
+| `REDIS_PASSWORD` | (empty) | Redis password |
+| `REDIS_ENCRYPTION_KEY` | **(required)** | AES-256-GCM key for session encryption — 64-char hex (generate: `openssl rand -hex 32`) |
 | `SESSION_TTL` | `720h` (30 days) | Session expiration duration |
+| `STATE_TTL` | `5m` | OAuth2 state token TTL (CSRF protection) |
 | `SESSION_COOKIE_NAME` | `Session-Id` | Cookie name for session ID |
+| `SESSION_COOKIE_SECURE` | `true` | Cookie Secure attribute |
+| `SESSION_COOKIE_HTTPONLY` | `true` | Cookie HttpOnly attribute |
+| `SESSION_COOKIE_SAMESITE` | `Strict` | Cookie SameSite attribute (`Strict`/`Lax`/`None`) |
 | `ROOT_CA_FILE` | `./rootCA.crt` | Custom root CA for internal HTTPS |
+| `ALLOWED_REDIRECT_PATH_PATTERN` | (empty) | Regex pattern for allowed post-login redirect paths |
 
 **Testing override:**
 - `REDIS_ADDR=localhost:6379` — Connect to local Redis (used in `task test`)
@@ -147,9 +156,11 @@ Key variables (see `.env.example` for full list):
 ### Adding a New Endpoint
 
 1. Create handler function in appropriate slice (or new directory)
-2. Register in `main.go`:
+2. Register in `main.go` using chi router:
    ```go
-   http.HandleFunc("/your/path", yourpackage.YourHandler)
+   r.Get("/your/path", yourpackage.YourHandler)
+   // or for a subtree:
+   r.Handle("/your/*", yourpackage.NewHandler(...))
    ```
 
 ### Accessing Configuration
@@ -199,10 +210,8 @@ handler.ServeHTTP(rr, req)
 
 ## Notes
 
-- **Incomplete implementation:** `auth/CallbackHandler` (auth/handler.go:69) exchanges code for token but doesn't create session yet — just returns HTTP 501
 - **Session rotation:** Every API response triggers session deletion + creation, which may cause race conditions under high concurrency
-- **No connection pooling:** Redis client is created/closed per operation (redis/redis.go:25)
+- **No connection pooling:** Redis client is created/closed per operation (redis/redis.go)
+- **Redis encryption:** Session data is encrypted with AES-256-GCM before storage. `REDIS_ENCRYPTION_KEY` (32-byte hex) is **required** at startup — missing key causes `log.Fatal`
 - **Security TODOs:**
-  - Add `HttpOnly` and `SameSite` attributes to session cookie (setup/config.go:34)
-  - Consider implementing CSRF protection
-  - Validate state token expiration in callback handler
+  - Consider implementing CSRF protection for non-OIDC state endpoints

@@ -10,6 +10,7 @@
   - ADR のフォーマットや詳細は既存の ADR ファイルを参考にすること。
   - ADR を作成したら即時コミットし、**必ずユーザーの承認を得てから実装を開始すること**                                       
   - ADR 作成後は実装に進まず、ユーザーのレビューを待つこと 
+  - 実装完了後はStatusをAcceptedに変更すること
 - 作業開始前にserena MCPをアクティベートすること。
 - 作業後は必ず`task ci`を実行し、エラーが無いかを確認する事。
 
@@ -89,7 +90,7 @@ docker compose up --build
 
 各サービスの詳細なコマンドとアーキテクチャは、それぞれの CLAUDE.md を参照してください:
 
-- **フロントエンド (Next.js + NGINX)**: `front/CLAUDE.md`
+- **フロントエンド (静的 HTML/JS/CSS + NGINX)**: `front/CLAUDE.md`
 - **BFF (Go)**: `bff/CLAUDE.md`
 - **API (Python/FastAPI)**: `api/CLAUDE.md`
 
@@ -109,9 +110,10 @@ task api:test       # api のテストを実行
 BFF は **Vertical Slice Architecture** で構成されている。機能・ユースケース単位でコードをまとめ、技術レイヤー単位のグループ化は避ける。新機能追加・修正時は、ハンドラー・ロジック・データアクセスを 1 つのスライス (ディレクトリ or パッケージ) に収める。
 
 現在のスライス構成:
-- **`bff/proxy/`** — `/api/` ルートのリバースプロキシ・セッション検証・ローテーション
-- **`bff/auth/`** — `/auth/login`・`/auth/callback` の認証フロー
-- **`bff/redis/`** — セッション永続化インフラ (各スライスから利用される共有層)
+- **`bff/proxy/`** — `/api/*` ルートのリバースプロキシ・セッション検証・ローテーション
+- **`bff/proxy/public_handler.go`** — `/public/*` ルートのセッション検証なし公開プロキシ
+- **`bff/auth/`** — `/auth/login`・`/auth/callback`・`/auth/me`・`/auth/logout` の認証フロー
+- **`bff/redis/`** — セッション永続化インフラ・AES-256-GCM 暗号化 (各スライスから利用される共有層)
 
 ## 注意事項
 
@@ -124,10 +126,6 @@ BFF は **Vertical Slice Architecture** で構成されている。機能・ユ�
 ## 既知の技術的負債
 
 対処が必要な課題を優先度順に記録する。新機能開発の前に中優先度以上を解消すること。
-
-### Redis へのトークン平文保存（中）
-
-`bff/redis/redis.go` の `SessionData` に `AccessToken` / `RefreshToken` が平文で保存されている。Redis が侵害された場合、全ユーザーのトークンが漏洩しなりすましが可能になる。本番投入前に Redis の TLS 有効化・ACL 設定・ネットワーク分離を必ず実施すること（`bff/redis/redis.go` のコメントも参照）。
 
 ### JWT 検証エラーの詳細が HTTP レスポンスに露出（低）
 
