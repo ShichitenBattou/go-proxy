@@ -21,7 +21,19 @@ class PostResponse(BaseModel):
     version: int
 
 
-@router.get("/posts", response_model=list[PostResponse])
+@router.get(
+    "/posts",
+    response_model=list[PostResponse],
+    summary="List posts (public)",
+    description=(
+        "認証不要で投稿一覧を返す公開エンドポイント。\n\n"
+        "| クエリパラメータ | 型 | 説明 |\n"
+        "|---|---|---|\n"
+        "| `author_id` | UUID (optional) | 指定した著者の投稿のみ絞り込む |\n"
+        "| `limit` | int (default: 20) | 取得件数の上限 |\n"
+        "| `offset` | int (default: 0) | 取得開始位置（ページネーション用） |"
+    ),
+)
 async def list_public_posts(
     interactor: Annotated[ListPostsInteractor, Depends(get_list_posts_interactor)],
     author_id: UUID | None = None,
