@@ -1,16 +1,24 @@
 {
   "folders": [
     {
-      "path": "."
+      "path": ".",
+      "name": "Root"
     },
     {
-      "path": "api"
+      "path": "docs/adr",
+      "name": "ADRs"
     },
     {
-      "path": "bff"
+      "path": "api",
+      "name": "API"
     },
     {
-      "path": "front"
+      "path": "bff",
+      "name": "BFF"
+    },
+    {
+      "path": "front",
+      "name": "Front"
     }
   ],
   "settings": {
