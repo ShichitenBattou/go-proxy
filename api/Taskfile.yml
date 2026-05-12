@@ -50,3 +50,10 @@ tasks:
       - cmd: echo "Running mypy type checker..."
       - cmd: uv run mypy . {{.CLI_ARGS}}
       - cmd: echo "done"
+
+  migrate:
+    desc: Run database migrations
+    cmds:
+      - cmd: echo "Running database migrations..."
+      - cmd: uv run alembic upgrade head
+      - cmd: echo "done"
